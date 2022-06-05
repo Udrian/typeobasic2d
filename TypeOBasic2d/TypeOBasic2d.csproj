@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<RootNamespace>TypeOEngine</RootNamespace>
+		<Authors>Simon Haggren</Authors>
+		<Company>Typedeaf</Company>
+		<Product>TypeO</Product>
+		<PreserveCompilationContext>false</PreserveCompilationContext>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+	</PropertyGroup>
+	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+		<Exec Command="cmd /c &quot;$(SolutionDir)/typer/dependency.py -p $(SolutionDir)&quot;" />
+	</Target>
+	<ItemGroup>
+	  <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+	</ItemGroup>
+	<ItemGroup Label="TypeOModules">
+		<Reference Include="TypeOCore" HintPath="C:\Users\simon\AppData\Local/TypeO/ModulesCache/TypeOCore/0.1.0/TypeOCore.dll" />
+	</ItemGroup>
+</Project>
