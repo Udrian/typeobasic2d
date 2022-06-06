@@ -8,13 +8,10 @@
 		<PreserveCompilationContext>false</PreserveCompilationContext>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 	</PropertyGroup>
-	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-		<Exec Command="cmd /c &quot;$(SolutionDir)/typer/dependency.py -p $(SolutionDir)&quot;" />
+	<Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(OS)' == 'Windows_NT'">
+		<Exec Command="cmd /c &quot;$(ProjectDir)../typer/dependency.py -p $(ProjectDir)../&quot;"/>
 	</Target>
-	<ItemGroup>
-	  <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
-	</ItemGroup>
 	<ItemGroup Label="TypeOModules">
-		<Reference Include="TypeOCore" HintPath="C:\Users\simon\AppData\Local/TypeO/ModulesCache/TypeOCore/0.1.0/TypeOCore.dll" />
+		<Reference Include="TypeOCore" HintPath="C:\Users\simon\AppData\Local/TypeO/ModulesCache/TypeOCore/0.1.0/TypeOCore.dll"/>
 	</ItemGroup>
 </Project>
