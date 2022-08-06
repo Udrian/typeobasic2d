@@ -9,9 +9,9 @@
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 	</PropertyGroup>
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(OS)' == 'Windows_NT'">
-		<Exec Command="cmd /c &quot;$(ProjectDir)../typer/dependency.py -p $(ProjectDir)../&quot;"/>
+		<Exec Command="cmd /c &quot;$(ProjectDir)../typer/dependency.py -p $(ProjectDir)../&quot;" />
 	</Target>
 	<ItemGroup Label="TypeOModules">
-		<Reference Include="TypeOCore" HintPath="C:\Users\simon\AppData\Local/TypeO/ModulesCache/TypeOCore/0.1.0/TypeOCore.dll"/>
+		<ProjectReference Name="TypeOCore" Include="D:/projects/typeo/typeocore/TypeOCore/TypeOCore.csproj" />
 	</ItemGroup>
 </Project>
