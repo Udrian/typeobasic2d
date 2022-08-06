@@ -3,7 +3,8 @@
     "version": "0.1.0",
     "externals": [],
     "dependencies": [
-        "TypeOCore-0.1.0"
+        "TypeOCore-0.1.0",
+        "TypeOTK-0.1.0"
     ],
     "type" : "Module"
 }

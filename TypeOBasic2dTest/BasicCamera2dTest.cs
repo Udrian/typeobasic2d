@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
 using TypeOEngine.Typedeaf.Basic2d;
-using TypeOEngine.Typedeaf.Basic2d.Services;
+using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Basic2d.Engine.Services;
 using TypeOEngine.Typedeaf.Core;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
-using TypeOEngine.Typedeaf.Core.Engine.Graphics;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.Core.Entities;
 using Xunit;
 
@@ -44,71 +45,73 @@ namespace TypeOBasic2dTest
             }
         }
 
-        public class TestCanvas : Canvas
+        public class TestCanvas : TypeObject, ICanvas2d
         {
-            public override Rectangle Viewport { get; set; }
+            public IWindow Window { get; set; }
+            public Rectangle Viewport { get; set; }
+            public Matrix WorldMatrix { get; set; }
 
-            public override void Cleanup()
+            protected override void Initialize()
             {
             }
 
-            public override void Clear(Color clearColor)
+            protected override void Cleanup()
             {
             }
 
-            public override void DrawImage(Texture texture, Vec2 pos, IAnchor2d anchor = null)
+            public void Clear(Color clearColor)
             {
             }
 
-            public override void DrawImage(Texture texture, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
+            public void DrawImage(Texture texture, Vec2 pos, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawLine(Vec2 from, Vec2 size, Color color, IAnchor2d anchor = null)
+            public void DrawImage(Texture texture, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawLineE(Vec2 from, Vec2 to, Color color, IAnchor2d anchor = null)
+            public void DrawLine(Vec2 from, Vec2 size, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawLines(List<Vec2> points, Color color, IAnchor2d anchor = null)
+            public void DrawLineE(Vec2 from, Vec2 to, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawPixel(Vec2 point, Color color, IAnchor2d anchor = null)
+            public void DrawLines(List<Vec2> points, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawPixels(List<Vec2> points, Color color, IAnchor2d anchor = null)
+            public void DrawPixel(Vec2 point, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawRectangle(Rectangle rectangle, bool filled, Color color, IAnchor2d anchor = null)
+            public void DrawPixels(List<Vec2> points, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawRectangle(Vec2 from, Vec2 size, bool filled, Color color, IAnchor2d anchor = null)
+            public void DrawRectangle(Rectangle rectangle, bool filled, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawRectangleE(Vec2 from, Vec2 to, bool filled, Color color, IAnchor2d anchor = null)
+            public void DrawRectangle(Vec2 from, Vec2 size, bool filled, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawText(Font font, string text, Vec2 pos, IAnchor2d anchor = null)
+            public void DrawRectangleE(Vec2 from, Vec2 to, bool filled, Color color, IAnchor2d anchor = null)
             {
             }
 
-            public override void DrawText(Font font, string text, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
+            public void DrawText(Font font, string text, Vec2 pos, IAnchor2d anchor = null)
             {
             }
 
-            public override void Initialize()
+            public void DrawText(Font font, string text, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
             {
             }
 
-            public override void Present()
+            public void Present()
             {
             }
         }

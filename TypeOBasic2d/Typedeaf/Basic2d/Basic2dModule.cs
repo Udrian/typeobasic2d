@@ -1,26 +1,23 @@
-﻿using TypeOEngine.Typedeaf.Basic2d.Services;
+﻿using TypeOEngine.Typedeaf.Basic2d.Engine.Services;
 using TypeOEngine.Typedeaf.Core.Engine;
 
 namespace TypeOEngine.Typedeaf.Basic2d
 {
+    /// <summary>
+    /// Module for drawing and handling 2d, need a module that access low level hardwares
+    /// </summary>
     public class Basic2dModule : Module<ModuleOption>
     {
-        public Basic2dModule() : base()
-        {
+        /// <inheritdoc/>
+        protected override void Initialize() { }
 
-        }
+        /// <inheritdoc/>
+        protected override void Cleanup() { }
 
-        public override void Initialize()
+        /// <inheritdoc/>
+        protected override void LoadExtensions(TypeO typeO)
         {
-        }
-
-        public override void Cleanup()
-        {
-        }
-
-        public override void LoadExtensions()
-        {
-            TypeO.AddService<BasicCamera2dService>();
+            typeO.AddService<BasicCamera2dService>();
         }
     }
 }

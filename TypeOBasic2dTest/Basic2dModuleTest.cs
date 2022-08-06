@@ -1,6 +1,6 @@
 using System.Linq;
 using TypeOEngine.Typedeaf.Basic2d;
-using TypeOEngine.Typedeaf.Basic2d.Services;
+using TypeOEngine.Typedeaf.Basic2d.Engine.Services;
 using TypeOEngine.Typedeaf.Core;
 using TypeOEngine.Typedeaf.Core.Engine;
 using Xunit;
