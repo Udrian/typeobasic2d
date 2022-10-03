@@ -1,5 +1,4 @@
-﻿using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+﻿using OpenTK.Mathematics;
 using System;
 using System.Collections.Generic;
 using TypeOEngine.Typedeaf.Core.Common;
@@ -16,6 +15,16 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
     /// </summary>
     public static class Canvas2d
     {
+        private static void ActivateShader(TKCanvas tkCanvas, Vec2 from, Color color)
+        {
+            tkCanvas.Shader.Use();
+            var modelMatrix = Matrix4.Identity * Matrix4.CreateTranslation((float)from.X, (float)from.Y, 0);
+            tkCanvas.Shader.Set("model", modelMatrix);
+            tkCanvas.Shader.Set("view", tkCanvas.ViewMatrix);
+            tkCanvas.Shader.Set("projection", tkCanvas.ProjectionMatrix);
+            tkCanvas.Shader.Set("ourColor", color);
+        }
+
         public static void DrawLine(this ICanvas canvas, Vec2 from, Vec2 size, Color color, IAnchor2d anchor = null)
         {
             throw new NotImplementedException();
@@ -41,31 +50,27 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             throw new NotImplementedException();
         }
 
-        public static void DrawRectangle(this ICanvas canvas, Rectangle rectangle, bool filled, Color color, IAnchor2d anchor = null)
-        {
-            throw new NotImplementedException();
-        }
-
+        internal static RectanglePrimitive RectanglePrimitive { get; private set; } = new RectanglePrimitive();
         public static void DrawRectangle(this ICanvas canvas, Vec2 from, Vec2 size, bool filled, Color color, IAnchor2d anchor = null)
         {
-            if(canvas is TKCanvas tkCanvas)
+            if (canvas is TKCanvas tkCanvas)
             {
-                tkCanvas.Shader.Use();
-                var modelMatrix = Matrix4.Identity * Matrix4.CreateTranslation((float)from.X, (float)from.Y, 0);
-                tkCanvas.Shader.Set("model", modelMatrix);
-                tkCanvas.Shader.Set("view", tkCanvas.ViewMatrix);
-                tkCanvas.Shader.Set("projection", tkCanvas.ProjectionMatrix);
-                tkCanvas.Shader.Set("ourColor", color);
+                ActivateShader(tkCanvas, from + anchor?.Position ?? from, color);
 
-                tkCanvas.RectanglePrimitive.Size = size;
-
-                tkCanvas.RectanglePrimitive.InternalDraw();
+                RectanglePrimitive.PrimitiveDrawType = filled ? PrimitiveDrawType.Triangle : PrimitiveDrawType.Line;
+                RectanglePrimitive.Size = size;
+                RectanglePrimitive.Draw();
             }
+        }
+
+        public static void DrawRectangle(this ICanvas canvas, Rectangle rectangle, bool filled, Color color, IAnchor2d anchor = null)
+        {
+            DrawRectangle(canvas, rectangle.Pos, rectangle.Size, filled, color, anchor);
         }
 
         public static void DrawRectangleE(this ICanvas canvas, Vec2 from, Vec2 to, bool filled, Color color, IAnchor2d anchor = null)
         {
-            throw new NotImplementedException();
+            DrawRectangle(canvas, from, to - from, filled, color, anchor);
         }
 
         public static void DrawImage(this ICanvas canvas, Texture texture, Vec2 pos, IAnchor2d anchor = null)
