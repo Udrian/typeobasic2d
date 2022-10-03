@@ -1,4 +1,4 @@
-﻿using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics.Interfaces;
+﻿using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
@@ -36,18 +36,15 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public override void Draw(ICanvas canvas)
             {
                 if (Texture == null) return;
-                if (canvas is ICanvas2d canvas2d)
-                {
-                    canvas2d.DrawImage(
-                        Texture,
-                        Position,
-                        scale: Scale,
-                        rotation: Rotation,
-                        color: Color,
-                        flipped: Flipped,
-                        anchor: Entity as Entity2d
-                    );
-                }
+                canvas.DrawImage(
+                    Texture,
+                    Position,
+                    scale: Scale,
+                    rotation: Rotation,
+                    color: Color,
+                    flipped: Flipped,
+                    anchor: Entity as Entity2d
+                );
             }
         }
     }

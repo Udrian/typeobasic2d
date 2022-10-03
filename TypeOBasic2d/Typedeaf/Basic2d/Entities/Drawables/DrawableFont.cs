@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
@@ -88,25 +88,22 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public override void Draw(ICanvas canvas)
             {
                 if(Font == null || Text == null) return;
-                if(canvas is ICanvas2d canvas2d)
+                var position = new Vec2(Position.X, Position.Y);
+                var ySize = Font.MeasureString(Text).Y;
+                foreach (var line in Lines)
                 {
-                    var position = new Vec2(Position.X, Position.Y);
-                    var ySize = Font.MeasureString(Text).Y;
-                    foreach (var line in Lines)
-                    {
-                        canvas2d.DrawText(
-                            Font,
-                            line,
-                            position,
-                            scale: Scale,
-                            rotation: Rotation,
-                            color: Color,
-                            flipped: Flipped,
-                            anchor: Entity as Entity2d
-                        );
+                    canvas.DrawText(
+                        Font,
+                        line,
+                        position,
+                        scale: Scale,
+                        rotation: Rotation,
+                        color: Color,
+                        flipped: Flipped,
+                        anchor: Entity as Entity2d
+                    );
 
-                        position.Y += ySize;
-                    }
+                    position.Y += ySize;
                 }
             }
         }
