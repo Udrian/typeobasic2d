@@ -30,7 +30,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
             public override void Cleanup()
             {
-                Texture?.Cleanup();
+                //Texture?.Cleanup();
             }
 
             public override void Draw(ICanvas canvas)
