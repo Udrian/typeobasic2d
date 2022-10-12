@@ -43,14 +43,42 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             throw new NotImplementedException();
         }
 
+        internal static Primitive<Vertex> PixelPrimitive { get; private set; } = new Primitive<Vertex>(1);
         public static void DrawPixel(this ICanvas canvas, Vec2 point, Color color, IAnchor2d anchor = null)
         {
-            throw new NotImplementedException();
+            if (canvas is TKCanvas tkCanvas)
+            {
+                var pos = (point + anchor?.Position) ?? point;
+                ActivateShader(tkCanvas.Shader, tkCanvas, pos, 0, color);
+
+                PixelPrimitive.PrimitiveDrawType = PrimitiveDrawType.Point;
+                PixelPrimitive.Draw();
+            }
         }
 
+        internal static Dictionary<int, Primitive<Vertex>> MultiPixelPrimitive { get; private set; } = new Dictionary<int, Primitive<Vertex>>();
         public static void DrawPixels(this ICanvas canvas, List<Vec2> points, Color color, IAnchor2d anchor = null)
         {
-            throw new NotImplementedException();
+            if (canvas is TKCanvas tkCanvas)
+            {
+                if(!MultiPixelPrimitive.ContainsKey(points.Count))
+                {
+                    MultiPixelPrimitive.Add(points.Count, new Primitive<Vertex>(points.Count));
+                }
+                var pixelPrimitive = MultiPixelPrimitive[points.Count];
+
+                int i = 0;
+                foreach(var point in points)
+                {
+                    var pos = (point + anchor?.Position) ?? point;
+                    pixelPrimitive.Vertices[i].Position = new Vec3(pos);
+                    i++;
+                }
+                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.One, 0, color);
+
+                pixelPrimitive.PrimitiveDrawType = PrimitiveDrawType.Point;
+                pixelPrimitive.Draw();
+            }
         }
 
         internal static RectanglePrimitive RectanglePrimitive { get; private set; } = new RectanglePrimitive();
