@@ -82,7 +82,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
             public override void Cleanup()
             {
-                Font?.Cleanup();
+                //Font?.Cleanup();
             }
 
             public override void Draw(ICanvas canvas)

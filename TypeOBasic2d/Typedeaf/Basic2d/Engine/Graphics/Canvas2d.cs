@@ -134,7 +134,11 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
 
         public static void DrawText(this ICanvas canvas, Font font, string text, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
         {
-            throw new NotImplementedException();
+            if (canvas is TKCanvas tkCanvas && font is TKFont tkFont)
+            {
+                pos = (pos + origin) ?? pos;
+                tkFont.Draw(tkCanvas.ProjectionMatrix, text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White);
+            }
         }
     }
 }
