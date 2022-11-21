@@ -137,7 +137,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             if (canvas is TKCanvas tkCanvas && font is TKFont tkFont)
             {
                 pos = (pos + origin) ?? pos;
-                tkFont.Draw(tkCanvas.ProjectionMatrix, text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White);
+                tkFont.Draw(text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White);
             }
         }
     }
