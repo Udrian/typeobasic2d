@@ -1,13 +1,13 @@
 ﻿using System.Collections.Generic;
 using TypeOEngine.Typedeaf.Basic2d;
-using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.Basic2d.Engine.Services;
 using TypeOEngine.Typedeaf.Core;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
-using TypeOEngine.Typedeaf.Core.Entities;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Interfaces;
 using Xunit;
 
 namespace TypeOBasic2dTest
@@ -25,8 +25,7 @@ namespace TypeOBasic2dTest
 
             public override void Initialize()
             {
-                Scenes = CreateSceneHandler();
-
+                //TODO: This is not correct
                 Canvas = new TestCanvas();
                 Camera.SetCanvas(Canvas);
             }
@@ -45,11 +44,12 @@ namespace TypeOBasic2dTest
             }
         }
 
-        public class TestCanvas : TypeObject, ICanvas2d
+        public class TestCanvas : TypeObject, ICanvas
         {
             public IWindow Window { get; set; }
             public Rectangle Viewport { get; set; }
-            public Matrix WorldMatrix { get; set; }
+            //TODO: This is not correct
+            public Matrix WorldMatrix { get; set; } = new Matrix();
 
             protected override void Initialize()
             {
@@ -66,6 +66,7 @@ namespace TypeOBasic2dTest
             public void DrawImage(Texture texture, Vec2 pos, IAnchor2d anchor = null)
             {
             }
+
 
             public void DrawImage(Texture texture, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
             {
@@ -113,6 +114,16 @@ namespace TypeOBasic2dTest
 
             public void Present()
             {
+            }
+
+            public void PreDraw()
+            {
+                throw new System.NotImplementedException();
+            }
+
+            public void PostDraw()
+            {
+                throw new System.NotImplementedException();
             }
         }
 
