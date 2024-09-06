@@ -18,7 +18,7 @@ namespace TypeOBasic2dTest.TypeTest
             Assert.NotNull(tkGameService);
 
             GLFWProvider.CheckForMainThread = false;
-            var tkGameWindow = tkGameService.CreateTKGameWindow(new NativeWindowSettings() { });
+            var tkGameWindow = tkGameService.CreateTKGameWindow(new NativeWindowSettings() { Size = new OpenTK.Mathematics.Vector2i(640, 320) });
             Assert.NotNull(tkGameWindow);
 
             typeO.Context.Game.MainWindow = new TestWindowMock()
@@ -43,8 +43,8 @@ namespace TypeOBasic2dTest.TypeTest
         internal static TypeO DrawTest(Action<Context> drawAction)
         {
             var typeO = CreateTypeO((context) => {
-                var window = CreateTKWindow(context.TypeO);
-                var canvas = CreateTKCanvas(context);
+                CreateTKWindow(context.TypeO);
+                CreateTKCanvas(context);
                 Assert.NotNull(context.Game.MainWindow);
                 Assert.NotNull(context.Game.Scenes.Canvas);
                 Assert.IsType<TKCanvas>(context.Game.Scenes.Canvas);

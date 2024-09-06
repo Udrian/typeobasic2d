@@ -93,8 +93,8 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 foreach (var line in Lines)
                 {
                     canvas.DrawText(
-                        Font,
                         line,
+                        Font,
                         position,
                         scale: Scale,
                         rotation: Rotation,
