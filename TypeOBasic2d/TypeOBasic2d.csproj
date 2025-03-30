@@ -12,7 +12,7 @@
 		<Exec Command="cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;"/>
 	</Target>
 	<ItemGroup Label="TypeOModules">
-		<ProjectReference Name="TypeOCore" Include="D:/projects/typeo/typeocore/TypeOCore/TypeOCore.csproj"/>
-		<ProjectReference Name="TypeOTK" Include="D:/projects/typeo/typeotk/TypeOTK/TypeOTK.csproj"/>
+		<ProjectReference Name="TypeOCore" Include="../../typeocore/TypeOCore/TypeOCore.csproj"/>
+		<ProjectReference Name="TypeOTK" Include="../../typeotk/TypeOTK/TypeOTK.csproj"/>
 	</ItemGroup>
 </Project>

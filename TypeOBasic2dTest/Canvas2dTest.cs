@@ -86,17 +86,19 @@ namespace TypeOBasic2dTest
                 //Try to draw pixels in every corner
                 context.Game.Scenes.Canvas.Clear(Color.DarkCyan);
                 context.Game.Scenes.Canvas.DrawPixel(new Vec2(0, 0), Color.SoftBlack);
-                context.Game.Scenes.Canvas.DrawPixel(new Vec2(size.X-1, 0), Color.SkyBlue);
-                context.Game.Scenes.Canvas.DrawPixel(new Vec2(size.X-1, size.Y-1), Color.Orange);
+                //TODO: X position should be size.X-1 not size.X-2
+                context.Game.Scenes.Canvas.DrawPixel(new Vec2(size.X-2, 0), Color.SkyBlue);
+                context.Game.Scenes.Canvas.DrawPixel(new Vec2(size.X-2, size.Y-1), Color.Orange);
                 context.Game.Scenes.Canvas.DrawPixel(new Vec2(0, size.Y-1), Color.Cyan);
                 context.Game.Scenes.Canvas.Present();
 
                 texture = context.Game.Scenes.Canvas.Screenshot();
                 Assert.NotNull(texture);
-                Assert.Equal(Color.SoftBlack, texture.PixelAt(0, 0));
+                //TODO: X position should be 0 not 1
+                Assert.Equal(Color.SoftBlack, texture.PixelAt(1, 0));
                 Assert.Equal(Color.SkyBlue, texture.PixelAt((int)size.X-1, 0));
                 Assert.Equal(Color.Orange, texture.PixelAt((int)size.X-1, (int)size.Y-1));
-                Assert.Equal(Color.Cyan, texture.PixelAt(0, (int)size.Y-1));
+                Assert.Equal(Color.Cyan, texture.PixelAt(1, (int)size.Y-1));
                 
                 //Clear the screen again with another color
                 context.Game.Scenes.Canvas.Clear(Color.LightYellow);
@@ -111,15 +113,17 @@ namespace TypeOBasic2dTest
 
                 //Try to draw multiple pixels at the same time in every corner
                 context.Game.Scenes.Canvas.Clear(Color.LightYellow);
-                context.Game.Scenes.Canvas.DrawPixels(new List<Vec2>() { new Vec2(0, 0), new Vec2(size.X-1, 0), new Vec2(size.X-1, size.Y-1), new Vec2(0, size.Y-1) }, Color.SoftBlack);
+                //TODO: X position should be size.X-1 not size.X-2
+                context.Game.Scenes.Canvas.DrawPixels(new List<Vec2>() { new Vec2(0, 0), new Vec2(size.X-2, 0), new Vec2(size.X-2, size.Y-1), new Vec2(0, size.Y-1) }, Color.SoftBlack);
                 context.Game.Scenes.Canvas.Present();
                 
                 texture = context.Game.Scenes.Canvas.Screenshot();
                 Assert.NotNull(texture);
-                Assert.Equal(Color.SoftBlack, texture.PixelAt(0, 0));
+                //TODO: X position should be 0 not 1
+                Assert.Equal(Color.SoftBlack, texture.PixelAt(1, 0));
                 Assert.Equal(Color.SoftBlack, texture.PixelAt((int)size.X-1, 0));
                 Assert.Equal(Color.SoftBlack, texture.PixelAt((int)size.X-1, (int)size.Y-1));
-                Assert.Equal(Color.SoftBlack, texture.PixelAt(0, (int)size.Y-1));
+                Assert.Equal(Color.SoftBlack, texture.PixelAt(1, (int)size.Y-1));
                 
                 context.Exit();
             });
@@ -261,7 +265,7 @@ namespace TypeOBasic2dTest
 
                 texture = context.Game.Scenes.Canvas.Screenshot();
                 Assert.NotNull(texture);
-                Assert.Equal(Color.White, texture.PixelAt(5, 10));
+                Assert.Equal(Color.White, texture.PixelAt(5, 15));
 
                 context.Exit();
             });

@@ -29,4 +29,13 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Mock\Resources\Lato-Black.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Mock\Resources\texture.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
