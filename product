@@ -3,10 +3,10 @@
     "version": "0.1.0",
     "externals": [],
     "dependencies": [
-        "TypeOCore-0.1.0",
-        "TypeDCore-0.1.0;dev",
-        "TypeOTK-0.1.0",
-        "TypeD-0.1.0;dev"
+        "Udrian@TypeOCore-0.1.0",
+        "Udrian@TypeDCore-0.1.0;dev",
+        "Udrian@TypeOTK-0.1.0",
+        "Udrian@TypeD-0.1.0;dev"
     ],
     "type" : "Module",
     "devModuleName": "TypeDBasic2d",

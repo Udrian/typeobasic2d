@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<ProjectReference Include="..\TypeOBasic2d\TypeOBasic2d.csproj" />
+	</ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net7.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+	<ItemGroup Label="TypeOModules">
+		<ProjectReference Name="TypeOCore" Include="../../typeocore/TypeOCore/TypeOCore.csproj" />
+		<ProjectReference Name="TypeOTK" Include="../../typeotk/TypeOTK/TypeOTK.csproj" />
+		<ProjectReference Name="TypeD" Include="../../typed/TypeD/TypeD.csproj" />
+		<ProjectReference Name="TypeDCore" Include="../../typeocore/TypeDCore/TypeDCore.csproj" />
+	</ItemGroup>
+</Project>
