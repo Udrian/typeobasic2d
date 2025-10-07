@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net7.0</TargetFramework>
+		<TargetFramework>net9.0</TargetFramework>
 		<RootNamespace>TypeOEngine</RootNamespace>
 		<Authors>Simon Haggren</Authors>
 		<Company>Typedeaf</Company>
@@ -9,10 +9,10 @@
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 	</PropertyGroup>
 	<ItemGroup Label="TypeOModules">
-		<ProjectReference Name="TypeOCore" Include="../../typeocore/TypeOCore/TypeOCore.csproj"/>
-		<ProjectReference Name="TypeOTK" Include="../../typeotk/TypeOTK/TypeOTK.csproj"/>
+		<ProjectReference Name="TypeOCore" Include="../../typeocore/TypeOCore/TypeOCore.csproj" />
+		<ProjectReference Name="TypeOTK" Include="../../typeotk/TypeOTK/TypeOTK.csproj" />
 	</ItemGroup>
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent" Condition="'$(OS)' == 'Windows_NT'">
-		<Exec Command="cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;"/>
+		<Exec Command="cmd /c &quot;$(ProjectDir)../typer/typer.bat dependency -p $(ProjectDir)../&quot;" />
 	</Target>
 </Project>
