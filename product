@@ -4,7 +4,6 @@
     "externals": ["Mock/Resources/Lato-Black.ttf;test", "Mock/Resources/texture.png;test"],
     "dependencies": [
         "Udrian@TypeOCore-0.1.0.dev",
-        "Udrian@TypeOCore-0.1.0.dev;dev",
         "Udrian@TypeOTK-0.1.0.dev",
         "Udrian@TypeD-0.1.0.dev;dev"
     ],

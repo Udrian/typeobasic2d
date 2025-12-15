@@ -50,13 +50,13 @@ namespace TypeOBasic2dTest
             var game = typeO.Context.Game as TestGameMock;
 
             Assert.Equal(game.Camera.Position, Vec2.Zero);
-            Assert.Equal(typeO.Context.Game.MainWindow.Canvas.WorldMatrix.Translation, Vec2.Zero);
+            Assert.Equal(typeO.Context.Game.MainWindow.Canvas.WorldTranslation, Vec3.Zero);
 
             var newPos = new Vec2(15, 25);
             game.Camera.Position = newPos;
 
             Assert.Equal(game.Camera.Position, newPos);
-            Assert.Equal(typeO.Context.Game.MainWindow.Canvas.WorldMatrix.Translation, newPos);
+            Assert.Equal(typeO.Context.Game.MainWindow.Canvas.WorldTranslation, new Vec3(newPos.X, newPos.Y, 0));
         }
     }
 }
