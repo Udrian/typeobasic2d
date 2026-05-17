@@ -63,7 +63,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the size of the object as a two-dimensional vector.
             /// </summary>
-            public override Vec2 Size { get; protected set; }
+            public override Vec2 Size { get; set; }
 
             /// <summary>
             /// Gets or sets the rotation angle, in degrees.

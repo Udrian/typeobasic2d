@@ -1,4 +1,5 @@
-﻿using TypeOEngine.Typedeaf.Core.Common;
+﻿using TypeOEngine.Typedeaf.Core.Attributes;
+using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Entities.Drawables;
 
 namespace TypeOEngine.Typedeaf.TypeOBasic2d
@@ -15,12 +16,14 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the position of the object in 2D space.
             /// </summary>
+            [TypeOProperty("Gets or sets the position of the object in 2D space.")]
             public Vec2 Position { get; set; }
 
             /// <summary>
             /// Gets or sets the size of the object as a two-dimensional vector.
             /// </summary>
-            public abstract Vec2 Size { get; protected set; }
+            [TypeOProperty("Gets or sets the size of the object as a two-dimensional vector.")]
+            public abstract Vec2 Size { get; set; }
 
             /// <summary>
             /// Initializes a new instance of the <see cref="Drawable2d"/> class.
