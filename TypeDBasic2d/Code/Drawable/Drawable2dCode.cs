@@ -10,7 +10,7 @@ namespace TypeDBasic2d.Code.Drawable
     /// <remarks>This class extends the functionality of <see cref="DrawableCode"/> to support 2D-specific
     /// drawable components. It determines whether the associated component is a base component type for 2D drawables
     /// and initializes properties and dependencies accordingly.</remarks>
-    public class Drawable2dCode : DrawableCode
+    public partial class Drawable2dCode : DrawableCode
     {
         /// <summary>
         /// Gets a value indicating whether the current type is considered a base component type.
@@ -38,13 +38,6 @@ namespace TypeDBasic2d.Code.Drawable
         /// proper initialization.</remarks>
         protected override void InitClass()
         {
-            if(IsBaseComponentType)
-            {
-                AddUsing("TypeOEngine.Typedeaf.Core.Common");
-                AddProperty(new Property("public override Vec2 Size", () => {
-                    Writer.AddLine("get; protected set;");
-                }));
-            }
             base.InitClass();
         }
     }
