@@ -37,7 +37,7 @@ namespace TypeDBasic2d
 
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Entity2dComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
-            //ComponentProvider.AddBaseTypeComponent(Basic2dComponent.)
+            ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableTextureComponent());
 
             // Hooks
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
@@ -50,6 +50,7 @@ namespace TypeDBasic2d
             // Data
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.Entity2dComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
+            ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableTextureComponent());
 
             // Hooks
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);

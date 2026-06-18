@@ -1,4 +1,5 @@
 ﻿using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
+using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
@@ -30,6 +31,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the rotation angle, in degrees.
             /// </summary>
+            [TypeOProperty("Gets or sets the rotation angle of the object in degrees.", 0)]
             public double Rotation { get; set; }
 
             /// <summary>
