@@ -41,6 +41,7 @@ namespace TypeDBasic2d
 
             // Hooks
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
+            HookModel.AddHook<TypeOObjectRemovedFromViewHook>(RemoveDebugDrawableComponent);
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
         }
@@ -54,6 +55,7 @@ namespace TypeDBasic2d
 
             // Hooks
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
+            HookModel.RemoveHook<TypeOObjectRemovedFromViewHook>(RemoveDebugDrawableComponent);
             HookModel.RemoveHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.RemoveHook<ComponentFocusHook>(ComponentFocusChanged);
         }
@@ -68,6 +70,16 @@ namespace TypeDBasic2d
             drawable.Size = size;
             drawable.UpdateLines();
             DebugDrawablesMap.Add(hook.Component.ID, drawable);
+        }
+
+        internal void RemoveDebugDrawableComponent(TypeOObjectRemovedFromViewHook hook)
+        {
+            if (DebugDrawablesMap.ContainsKey(hook.Component.ID))
+            {
+                var drawable = DebugDrawablesMap[hook.Component.ID];
+                hook.Context.Game.Scenes.CurrentScene.Drawables.Destroy(drawable);
+                DebugDrawablesMap.Remove(hook.Component.ID);
+            }
         }
 
         internal void ComponentPropertyChanged(PropertyChangedHook hook)

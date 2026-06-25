@@ -65,8 +65,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             else if(TypeOObject is Drawable2d)
             {
                 var pos = new Vec2(Position.X, Position.Y);
-                pos.X = pos.X + (((Drawable2d)TypeOObject).Entity as Entity2d)?.ScreenBounds.Pos.X ?? 0;
-                pos.Y = pos.Y + (((Drawable2d)TypeOObject).Entity as Entity2d)?.ScreenBounds.Pos.Y ?? 0;
+                pos.X = pos.X + ((((Drawable2d)TypeOObject).Entity as Entity2d)?.ScreenBounds.Pos.X ?? 0);
+                pos.Y = pos.Y + ((((Drawable2d)TypeOObject).Entity as Entity2d)?.ScreenBounds.Pos.Y ?? 0);
                 return pos;
             }
 
