@@ -42,6 +42,7 @@ namespace TypeDBasic2d
             // Hooks
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
             HookModel.AddHook<TypeOObjectRemovedFromViewHook>(RemoveDebugDrawableComponent);
+            HookModel.AddHook<CloseComponentHook>(ComponentClosed);
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
         }
@@ -56,6 +57,7 @@ namespace TypeDBasic2d
             // Hooks
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
             HookModel.RemoveHook<TypeOObjectRemovedFromViewHook>(RemoveDebugDrawableComponent);
+            HookModel.RemoveHook<CloseComponentHook>(ComponentClosed);
             HookModel.RemoveHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.RemoveHook<ComponentFocusHook>(ComponentFocusChanged);
         }
@@ -69,24 +71,29 @@ namespace TypeDBasic2d
             drawable.Position = position;
             drawable.Size = size;
             drawable.UpdateLines();
-            DebugDrawablesMap.Add(hook.Component.ID, drawable);
+            DebugDrawablesMap.Add(hook.Component.FullParentPath + hook.Component.ID, drawable);
         }
 
         internal void RemoveDebugDrawableComponent(TypeOObjectRemovedFromViewHook hook)
         {
-            if (DebugDrawablesMap.ContainsKey(hook.Component.ID))
+            if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
             {
-                var drawable = DebugDrawablesMap[hook.Component.ID];
+                var drawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
                 hook.Context.Game.Scenes.CurrentScene.Drawables.Destroy(drawable);
-                DebugDrawablesMap.Remove(hook.Component.ID);
+                DebugDrawablesMap.Remove(hook.Component.FullParentPath + hook.Component.ID);
             }
+        }
+
+        internal void ComponentClosed(CloseComponentHook hook)
+        {
+            DebugDrawablesMap.Clear();
         }
 
         internal void ComponentPropertyChanged(PropertyChangedHook hook)
         {
-            if (DebugDrawablesMap.ContainsKey(hook.ID))
+            if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
             {
-                var drawable = DebugDrawablesMap[hook.ID];
+                var drawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
                 if (hook.Property.Name == "Position" || hook.Property.Name == "Size")
                 {
                     Vec2 position = hook.Property.Name == "Position" ? hook.Property.ToValue<Vec2>() : drawable.Position;
@@ -105,9 +112,9 @@ namespace TypeDBasic2d
                 CurrentFocusedDebug2DDrawable.Focused = false;
                 CurrentFocusedDebug2DDrawable = null;
             }
-            if (DebugDrawablesMap.ContainsKey(hook.Component.ID))
+            if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
             {
-                CurrentFocusedDebug2DDrawable = DebugDrawablesMap[hook.Component.ID];
+                CurrentFocusedDebug2DDrawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
                 CurrentFocusedDebug2DDrawable.Focused = true;
             }
         }

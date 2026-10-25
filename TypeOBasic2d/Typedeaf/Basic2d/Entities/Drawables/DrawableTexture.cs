@@ -103,7 +103,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     rotation: Rotation,
                     color: Color,
                     flipped: Flipped,
-                    anchor: Entity as Entity2d
+                    anchor: Parent as Entity2d
                 );
             }
         }
