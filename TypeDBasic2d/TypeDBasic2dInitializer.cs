@@ -21,11 +21,14 @@ namespace TypeDBasic2d
         IHookModel HookModel { get; set; }
 
         // Data
+        Project Project { get; set; }
         Dictionary<string, Debug2DDrawable> DebugDrawablesMap { get; set; }
         Debug2DDrawable CurrentFocusedDebug2DDrawable { get; set; }
 
         public override void Initializer(Project project)
         {
+            Project = project;
+
             // Providers
             ComponentProvider = Resources.Get<IComponentProvider>();
 
@@ -43,6 +46,7 @@ namespace TypeDBasic2d
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
             HookModel.AddHook<TypeOObjectRemovedFromViewHook>(RemoveDebugDrawableComponent);
             HookModel.AddHook<CloseComponentHook>(ComponentClosed);
+            HookModel.AddHook<ViewerUnloadedHook>(ViewerUnloaded);
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
         }
@@ -58,8 +62,10 @@ namespace TypeDBasic2d
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
             HookModel.RemoveHook<TypeOObjectRemovedFromViewHook>(RemoveDebugDrawableComponent);
             HookModel.RemoveHook<CloseComponentHook>(ComponentClosed);
+            HookModel.RemoveHook<ViewerUnloadedHook>(ViewerUnloaded);
             HookModel.RemoveHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.RemoveHook<ComponentFocusHook>(ComponentFocusChanged);
+            ClearDebugDrawablesMap();
         }
 
         internal void AddDebugDrawableComponent(TypeOObjectAddedToViewHook hook)
@@ -86,7 +92,20 @@ namespace TypeDBasic2d
 
         internal void ComponentClosed(CloseComponentHook hook)
         {
+            if (hook.Project == Project)
+                ClearDebugDrawablesMap();
+        }
+
+        internal void ViewerUnloaded(ViewerUnloadedHook hook)
+        {
+            if (hook.Project == Project)
+                ClearDebugDrawablesMap();
+        }
+
+        private void ClearDebugDrawablesMap()
+        {
             DebugDrawablesMap.Clear();
+            CurrentFocusedDebug2DDrawable = null;
         }
 
         internal void ComponentPropertyChanged(PropertyChangedHook hook)
