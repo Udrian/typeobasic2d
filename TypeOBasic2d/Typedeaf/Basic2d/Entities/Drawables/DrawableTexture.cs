@@ -49,7 +49,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets the size of the texture as a two-dimensional vector.
             /// </summary>
-            public override Vec2 Size { get { return Texture.Size; } set { } }
+            public override Vec2 Size { get { return Texture?.Size ?? Vec2.Zero; } set { } }
 
             /// <summary>
             /// Represents a drawable texture with properties for scaling, rotation, color, and flipping.
