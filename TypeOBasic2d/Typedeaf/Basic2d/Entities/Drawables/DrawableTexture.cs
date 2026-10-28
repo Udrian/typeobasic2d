@@ -31,7 +31,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the rotation angle, in degrees.
             /// </summary>
-            [TypeOProperty("Gets or sets the rotation angle of the object in degrees.", 0)]
+            [TypeOProperty("Gets or sets the rotation angle of the object in degrees.", 0.0)]
             public double Rotation { get; set; }
 
             /// <summary>
