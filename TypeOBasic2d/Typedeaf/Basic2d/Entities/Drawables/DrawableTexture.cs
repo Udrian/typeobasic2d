@@ -44,6 +44,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the flipped state of the object.
             /// </summary>
+            [TypeOProperty("Gets or sets the flipped state of the object.")]
             public Flipped Flipped { get; set; }
 
             /// <summary>
