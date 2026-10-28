@@ -21,6 +21,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the texture associated with the object.
             /// </summary>
+            [TypeOProperty("Gets or sets the texture associated with the object.")]
             public Texture Texture { get; set; }
 
             /// <summary>
