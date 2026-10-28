@@ -26,6 +26,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the scale of the object as a two-dimensional vector.
             /// </summary>
+            [TypeOProperty("Gets or sets the scale of the object as a two-dimensional vector.", null)]
             public Vec2 Scale { get; set; }
 
             /// <summary>
@@ -37,6 +38,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the color associated with the object.
             /// </summary>
+            [TypeOProperty("Gets or sets the color associated with the object.", null)]
             public Color Color { get; set; }
 
             /// <summary>
