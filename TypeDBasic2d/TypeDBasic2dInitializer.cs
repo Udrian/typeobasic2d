@@ -7,7 +7,9 @@ using TypeD.Models.Interfaces;
 using TypeD.Models.Providers.Interfaces;
 using TypeDBasic2d.Components;
 using TypeDBasic2d.Typedeaf.Core.Entities.Drawables;
+using TypeDCore.Commands.Data;
 using TypeDCore.Models.Data.Hooks;
+using TypeDCore.Models.Interfaces;
 using TypeOEngine.Typedeaf.Core.Common;
 
 namespace TypeDBasic2d
@@ -19,6 +21,8 @@ namespace TypeDBasic2d
 
         // Models
         IHookModel HookModel { get; set; }
+        IEditorToolModel EditorToolModel { get; set; }
+        IEditorCommandRegistry EditorCommandRegistry { get; set; }
 
         // Data
         Project Project { get; set; }
@@ -34,6 +38,8 @@ namespace TypeDBasic2d
 
             // Models
             HookModel = Resources.Get<IHookModel>();
+            EditorToolModel = Resources.Get<IEditorToolModel>();
+            EditorCommandRegistry = Resources.Get<IEditorCommandRegistry>();
 
             // Data
             DebugDrawablesMap = new Dictionary<string, Debug2DDrawable>();
@@ -70,10 +76,19 @@ namespace TypeDBasic2d
 
         internal void AddDebugDrawableComponent(TypeOObjectAddedToViewHook hook)
         {
+            if (hook.TypeOObject is not (TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Entity2d
+                or TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables.Drawable2d))
+                return;
+
             Vec2 position = hook.Component.Properties.FirstOrDefault(p => p.Name == "Position")?.ToValue<Vec2>() ?? Vec2.Zero;
             Vec2 size = hook.Component.Properties.FirstOrDefault(p => p.Name == "Size")?.ToValue<Vec2>() ?? Vec2.Zero;
             var drawable = hook.Context.Game.Scenes.CurrentScene.Drawables.Create<Debug2DDrawable>();
             drawable.TypeOObject = hook.TypeOObject;
+            drawable.Component = hook.Component;
+            drawable.Project = Project;
+            drawable.HookModel = HookModel;
+            drawable.EditorToolModel = EditorToolModel;
+            drawable.EditorCommandRegistry = EditorCommandRegistry;
             drawable.Position = position;
             drawable.Size = size;
             drawable.UpdateLines();
@@ -82,6 +97,10 @@ namespace TypeDBasic2d
 
         internal void RemoveDebugDrawableComponent(TypeOObjectRemovedFromViewHook hook)
         {
+            if (hook.TypeOObject is not (TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Entity2d
+                or TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables.Drawable2d))
+                return;
+
             if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
             {
                 var drawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
