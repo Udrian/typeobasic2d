@@ -8,6 +8,7 @@ using TypeD.Models.Data.Hooks;
 using TypeD.Models.Interfaces;
 using TypeDCore.Commands.Data;
 using TypeDCore.Models.Data;
+using TypeDCore.Models.Data.Hooks;
 using TypeDCore.Models.Interfaces;
 using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Common;
@@ -69,6 +70,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 service =>
                 {
                     service.SetKeyAlias(MouseButton.Left, MouseButton.Left);
+                    service.SetKeyAlias(MouseButton.Right, MouseButton.Right);
                     return new object();
                 });
 
@@ -132,6 +134,13 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 {
                     UpdateDrag(mousePos);
                 }
+                return;
+            }
+
+            if (isHovered && MouseInputService.IsPressed(MouseButton.Right))
+            {
+                SelectComponent();
+                HookModel?.Shoot(new ViewerContextMenuRequestedHook { Project = Project, Component = Component });
                 return;
             }
 
