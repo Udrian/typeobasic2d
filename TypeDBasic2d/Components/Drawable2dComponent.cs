@@ -1,5 +1,6 @@
 ﻿using TypeD.Models.Data;
 using TypeDCore.Components;
+using TypeOEngine.Typedeaf.Core.Entities.Drawables;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 
 namespace TypeDBasic2d.Components
@@ -20,7 +21,8 @@ namespace TypeDBasic2d.Components
                 ClassName = typeof(Drawable2d).Name,
                 Namespace = typeof(Drawable2d).Namespace,
                 Template = new Drawable2dComponentTemplate(),
-                BaseInheritedComponent = CoreComponent.DrawableComponent()
+                BaseInheritedComponent = CoreComponent.DrawableComponent(),
+                TypeOBaseType = typeof(Drawable)
             };
         }
     }
