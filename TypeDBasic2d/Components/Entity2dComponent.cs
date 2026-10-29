@@ -1,4 +1,4 @@
-﻿using TypeD.Models.Data;
+using TypeD.Models.Data;
 using TypeDCore.Components;
 using TypeOEngine.Typedeaf.Core.Entities;
 using TypeOEngine.Typedeaf.Core.Entities.Drawables;
@@ -23,7 +23,6 @@ namespace TypeDBasic2d.Components
                 Namespace = typeof(Entity2d).Namespace,
                 Template = new Entity2dComponentTemplate(),
                 BaseInheritedComponent = CoreComponent.EntityComponent(),
-                TypeOBaseType = typeof(Entity),
                 Icon = "entity2d.png"
             };
         }
