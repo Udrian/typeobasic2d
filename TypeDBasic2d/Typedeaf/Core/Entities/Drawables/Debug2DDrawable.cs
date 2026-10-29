@@ -168,7 +168,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 return;
 
             SelectComponent();
-            if (tool == EditorTool.Selection)
+            if (tool == EditorTool.Selection || Component?.IsVisible == false)
                 return;
 
             if (!TryCapturePointer())
@@ -264,10 +264,14 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
         private void SelectComponent()
         {
+            var target = Component;
+            while (target != null && !target.IsVisible)
+                target = target.ParentComponent;
+
             HookModel?.Shoot(new ComponentFocusHook
             {
                 Project = Project,
-                Component = Component,
+                Component = target ?? Component,
                 Root = false
             });
         }
