@@ -55,6 +55,7 @@ namespace TypeDBasic2d
             HookModel.AddHook<ViewerUnloadedHook>(ViewerUnloaded);
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
+            HookModel.AddHook<ViewerHitTestHook>(ViewerHitTest);
         }
 
         public override void Uninitializer()
@@ -71,6 +72,7 @@ namespace TypeDBasic2d
             HookModel.RemoveHook<ViewerUnloadedHook>(ViewerUnloaded);
             HookModel.RemoveHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.RemoveHook<ComponentFocusHook>(ComponentFocusChanged);
+            HookModel.RemoveHook<ViewerHitTestHook>(ViewerHitTest);
             ClearDebugDrawablesMap();
         }
 
@@ -141,6 +143,43 @@ namespace TypeDBasic2d
                     drawable.UpdateLines();
                 }
             }
+        }
+
+        internal void ViewerHitTest(ViewerHitTestHook hook)
+        {
+            if (hook.Project != Project)
+                return;
+
+            if (hook.Target != null)
+            {
+                if (DebugDrawablesMap.TryGetValue(hook.Target.FullParentPath + hook.Target.ID, out var targetDrawable))
+                {
+                    var origin = targetDrawable.ScreenPosition;
+                    hook.OriginX = origin.X;
+                    hook.OriginY = origin.Y;
+                }
+                return;
+            }
+
+            if (hook.Result != null)
+                return;
+
+            var point = new Vec2(hook.X, hook.Y);
+            Component hit = null;
+            try
+            {
+                // Drawables are added parent first, so the last match is the innermost node.
+                foreach (var drawable in DebugDrawablesMap.Values.ToList())
+                {
+                    if (drawable.Component != null && drawable.ContainsPoint(point))
+                        hit = drawable.Component;
+                }
+            }
+            catch (System.InvalidOperationException)
+            {
+            }
+
+            hook.Result = hit;
         }
 
         internal void ComponentFocusChanged(ComponentFocusHook hook)

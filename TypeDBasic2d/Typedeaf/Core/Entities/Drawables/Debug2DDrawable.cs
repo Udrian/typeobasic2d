@@ -108,6 +108,10 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             UpdateLines();
         }
 
+        public Vec2 ScreenPosition => GetPos();
+
+        public bool ContainsPoint(Vec2 point) => Contains(GetPos(), Size, point);
+
         public void UpdateLines()
         {
             if (Lines == null)
