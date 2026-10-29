@@ -22,7 +22,8 @@ namespace TypeDBasic2d.Components
                 Namespace = typeof(Drawable2d).Namespace,
                 Template = new Drawable2dComponentTemplate(),
                 BaseInheritedComponent = CoreComponent.DrawableComponent(),
-                TypeOBaseType = typeof(Drawable)
+                TypeOBaseType = typeof(Drawable),
+                Icon = "drawable2d.png"
             };
         }
     }

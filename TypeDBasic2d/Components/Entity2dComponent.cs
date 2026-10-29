@@ -23,7 +23,8 @@ namespace TypeDBasic2d.Components
                 Namespace = typeof(Entity2d).Namespace,
                 Template = new Entity2dComponentTemplate(),
                 BaseInheritedComponent = CoreComponent.EntityComponent(),
-                TypeOBaseType = typeof(Entity)
+                TypeOBaseType = typeof(Entity),
+                Icon = "entity2d.png"
             };
         }
     }
