@@ -20,6 +20,7 @@ namespace TypeOBasic2dTest.TypeTest
             GLFWProvider.CheckForMainThread = false;
             var tkGameWindow = tkGameService.CreateTKGameWindow(new NativeWindowSettings() { Size = new OpenTK.Mathematics.Vector2i(640, 320) });
             Assert.NotNull(tkGameWindow);
+            tkGameWindow.MakeCurrent();
 
             typeO.Context.Game.MainWindow = new TestWindowMock()
             {
