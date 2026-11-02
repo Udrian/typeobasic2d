@@ -1,9 +1,6 @@
 ﻿using TypeOBasic2dTest.TypeTest;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
-using Xunit;
-using System.Collections.Generic;
-using System.IO;
 using TypeOEngine.Typedeaf.TK.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Contents.ContentExtensions;
 
