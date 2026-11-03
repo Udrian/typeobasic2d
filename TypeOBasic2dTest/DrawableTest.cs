@@ -62,16 +62,46 @@ namespace TypeOBasic2dTest
         }
 
         [Fact]
-        public void DrawableTexture_Size_FollowsTexture()
+        public void DrawableTexture_Size_FollowsTexture_WhenNotSet()
         {
             var drawable = new DrawableTexture();
             Assert.Equal(Vec2.Zero, drawable.Size);
 
             drawable.Texture = new StubTexture(new Vec2i(16, 32));
             Assert.Equal(new Vec2(16, 32), drawable.Size);
+        }
 
-            drawable.Size = new Vec2(1, 1);
-            Assert.Equal(new Vec2(16, 32), drawable.Size);
+        [Fact]
+        public void DrawableTexture_Size_CanBeSetExplicitly()
+        {
+            var drawable = new DrawableTexture();
+            drawable.Texture = new StubTexture(new Vec2i(16, 32));
+
+            drawable.Size = new Vec2(8, 16);
+            Assert.Equal(new Vec2(8, 16), drawable.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_Origin_DefaultIsZero()
+        {
+            var drawable = new DrawableTexture();
+            Assert.Equal(Vec2.Zero, drawable.Origin);
+        }
+
+        [Fact]
+        public void DrawableTexture_BoundingBox_IncludesOriginAndScale()
+        {
+            var drawable = new DrawableTexture
+            {
+                Texture = new StubTexture(new Vec2i(10, 10)),
+                Position = new Vec2(20, 20),
+                Origin = new Vec2(0.5, 0.5),
+                Scale = new Vec2(2, 2)
+            };
+
+            var box = drawable.BoundingBox;
+            Assert.Equal(new Vec2(15, 15), box.Pos);
+            Assert.Equal(new Vec2(20, 20), box.Size);
         }
 
         [Fact]
@@ -84,7 +114,7 @@ namespace TypeOBasic2dTest
         }
 
         [Fact]
-        public void DrawableTextureOption_AppliesPositionAndTexture()
+        public void DrawableTextureOption_AppliesPositionOriginAndTexture()
         {
             var owner = StartOwner();
             var texture = new StubTexture(new Vec2i(4, 4));
@@ -92,22 +122,38 @@ namespace TypeOBasic2dTest
             var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
             {
                 Position = new Vec2(9, 8),
+                Origin = new Vec2(0.5, 0.5),
                 Texture = texture
             });
 
             Assert.Equal(new Vec2(9, 8), drawable.Position);
+            Assert.Equal(new Vec2(0.5, 0.5), drawable.Origin);
             Assert.Same(texture, drawable.Texture);
         }
 
         [Fact]
-        public void Drawable2dOption_WithoutValues_KeepsDefaults()
+        public void DrawableTextureOption_AppliesSizeAndSizeMode()
         {
             var owner = StartOwner();
+            var texture = new StubTexture(new Vec2i(4, 4));
 
-            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption());
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = texture,
+                Size = new Vec2(8, 8),
+                SizeMode = SizeMode.Stretch
+            });
 
-            Assert.Equal(Vec2.Zero, drawable.Position);
-            Assert.Null(drawable.Texture);
+            Assert.Same(texture, drawable.Texture);
+            Assert.Equal(new Vec2(8, 8), drawable.Size);
+            Assert.Equal(SizeMode.Stretch, drawable.SizeMode);
+        }
+
+        [Fact]
+        public void DrawableTexture_HasDefaultSizeModeClip()
+        {
+            var drawable = new DrawableTexture();
+            Assert.Equal(SizeMode.Clip, drawable.SizeMode);
         }
 
         [Fact]

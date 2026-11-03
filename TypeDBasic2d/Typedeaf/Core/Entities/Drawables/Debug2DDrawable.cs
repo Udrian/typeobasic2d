@@ -41,11 +41,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private static readonly object PointerSync = new();
         private static readonly ConditionalWeakTable<MouseInputService, object> MouseServicesWithLeftButtonAlias = new();
         private static Debug2DDrawable PointerOwner;
-
-        /// <summary>
-        /// Gets or sets the size of the outlined area.
-        /// </summary>
-        public override Vec2 Size { get; set; }
+        
         private List<Vec2> Lines { get; set; }
 
         /// <summary>
@@ -116,9 +112,27 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 });
 
             var mousePos = MouseInputService.MousePosition;
-            var pos = GetPos();
-            var isHovered = Contains(pos, Size, mousePos);
-            ProcessPointer(mousePos, pos, isHovered);
+            Vec2 pos;
+            Vec2 size;
+            
+            // Use BoundingBox for Drawable2d objects to account for Position, Origin, Scale, and Rotation
+            if (TypeOObject is Drawable2d drawable)
+            {
+                var boundingBox = drawable.BoundingBox;
+                pos = boundingBox.Pos;
+                size = boundingBox.Size;
+                
+                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
+                pos = pos + parentPosition;
+            }
+            else
+            {
+                pos = GetPos();
+                size = Size;
+            }
+            
+            var isHovered = Contains(pos, size, mousePos);
+            ProcessPointer(mousePos, pos, size, isHovered);
 
             var drawColor = Focused ? Color.Green : Color.Red;
             if (isHovered)
@@ -131,9 +145,9 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 return;
 
             if (EditorToolModel.ActiveTool == EditorTool.Move)
-                DrawMoveGizmo(canvas, pos, Size);
+                DrawMoveGizmo(canvas, pos, size);
             else if (EditorToolModel.ActiveTool == EditorTool.Resize)
-                DrawResizeHandles(canvas, pos, Size);
+                DrawResizeHandles(canvas, pos, size);
         }
 
         /// <summary>
@@ -165,7 +179,18 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// </summary>
         /// <param name="point">The screen point to test.</param>
         /// <returns><c>true</c> if the point is inside the area; otherwise <c>false</c>.</returns>
-        public bool ContainsPoint(Vec2 point) => Contains(GetPos(), Size, point);
+        public bool ContainsPoint(Vec2 point)
+        {
+            if (TypeOObject is Drawable2d drawable)
+            {
+                var boundingBox = drawable.BoundingBox;
+                var pos = boundingBox.Pos;
+                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
+                pos = pos + parentPosition;
+                return Contains(pos, boundingBox.Size, point);
+            }
+            return Contains(GetPos(), Size, point);
+        }
 
         /// <summary>
         /// Recomputes the outline points from the current position and size.
@@ -175,15 +200,32 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (Lines == null)
                 return;
 
-            var pos = GetPos();
+            Vec2 pos;
+            Vec2 size;
+
+            if (TypeOObject is Drawable2d drawable)
+            {
+                var boundingBox = drawable.BoundingBox;
+                pos = boundingBox.Pos;
+                size = boundingBox.Size;
+                
+                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
+                pos = pos + parentPosition;
+            }
+            else
+            {
+                pos = GetPos();
+                size = Size;
+            }
+
             Lines[0] = pos;
-            Lines[1] = pos + new Vec2(Size.X, 0);
-            Lines[2] = pos + Size;
-            Lines[3] = pos + new Vec2(0, Size.Y);
+            Lines[1] = pos + new Vec2(size.X, 0);
+            Lines[2] = pos + size;
+            Lines[3] = pos + new Vec2(0, size.Y);
             Lines[4] = pos;
         }
 
-        private void ProcessPointer(Vec2 mousePos, Vec2 boundsPos, bool isHovered)
+        private void ProcessPointer(Vec2 mousePos, Vec2 boundsPos, Vec2 boundSize, bool isHovered)
         {
             if (IsDragging)
             {
@@ -215,7 +257,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             var resizeAxes = ResizeAxes.None;
             if (tool == EditorTool.Move && Focused)
             {
-                var center = boundsPos + (Size / 2);
+                var center = boundsPos + (boundSize / 2);
                 var xEnd = center + new Vec2(GizmoLength, 0);
                 var yEnd = center + new Vec2(0, -GizmoLength);
                 isDraggingX = DistanceToSegment(mousePos, center, xEnd) <= HandleRadius;
@@ -223,7 +265,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
             else if (tool == EditorTool.Resize)
             {
-                TryGetResizeAxes(mousePos, boundsPos, Size, out resizeAxes);
+                TryGetResizeAxes(mousePos, boundsPos, boundSize, out resizeAxes);
             }
 
             if (!isHovered && !isDraggingX && !isDraggingY && resizeAxes == ResizeAxes.None)

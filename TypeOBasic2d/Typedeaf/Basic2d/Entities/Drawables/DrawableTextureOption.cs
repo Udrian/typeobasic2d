@@ -1,4 +1,5 @@
-﻿using TypeOEngine.Typedeaf.Core.Engine.Contents;
+using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.Core.Engine.Contents;
 
 namespace TypeOEngine.Typedeaf.TypeOBasic2d
 {
@@ -18,10 +19,20 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public Texture Texture { get; set; }
 
             /// <summary>
+            /// Gets or sets the size of the texture display area.
+            /// </summary>
+            public Vec2? Size { get; set; }
+
+            /// <summary>
+            /// Gets or sets how the texture is rendered within the Size bounds.
+            /// </summary>
+            public SizeMode? SizeMode { get; set; }
+
+            /// <summary>
             /// Creates and initializes a <see cref="DrawableTexture"/> object.
             /// </summary>
             /// <remarks>If the <see cref="Texture"/> property is not <see langword="null"/>, it will
-            /// be assigned to the <paramref name="obj"/> instance.</remarks>
+            /// be assigned to the <paramref name="obj"/> instance. Size and SizeMode options are also applied if provided.</remarks>
             /// <param name="obj">The <see cref="DrawableTexture"/> instance to be initialized.</param>
             /// <returns><see langword="true"/> if the object was successfully created and initialized; otherwise,
             /// <see langword="false"/>.</returns>
@@ -31,6 +42,10 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
                 if(Texture != null)
                     obj.Texture = Texture;
+                if(Size.HasValue)
+                    obj.Size = Size.Value;
+                if(SizeMode.HasValue)
+                    obj.SizeMode = SizeMode.Value;
 
                 return true;
             }

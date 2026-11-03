@@ -14,10 +14,6 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public Font Font { get; set; }
             /// <summary>Gets or sets the text to draw.</summary>
             public string Text { get; set; }
-            /// <summary>Gets or sets the scale.</summary>
-            public Vec2? Scale { get; set; }
-            /// <summary>Gets or sets the rotation.</summary>
-            public double? Rotation { get; set; }
             /// <summary>Gets or sets the text color.</summary>
             public Color? Color { get; set; }
             /// <summary>Gets or sets how the text is flipped.</summary>
@@ -36,10 +32,6 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     obj.Font = Font;
                 if(Text != null)
                     obj.Text = Text;
-                if(Scale.HasValue)
-                    obj.Scale = Scale.Value;
-                if(Rotation.HasValue)
-                    obj.Rotation = Rotation.Value;
                 if(Color.HasValue)
                     obj.Color = Color.Value;
                 if(Flipped.HasValue)

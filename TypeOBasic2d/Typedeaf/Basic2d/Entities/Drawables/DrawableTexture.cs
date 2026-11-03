@@ -1,4 +1,4 @@
-﻿using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
+using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
@@ -13,9 +13,8 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
         /// scale, rotation, color, and flipping.
         /// </summary>
         /// <remarks>This class extends <see cref="Drawable2d"/> and provides additional functionality for
-        /// rendering textures. The texture can be customized using properties such as <see cref="Scale"/>,
-        /// <see cref="Rotation"/>, <see cref="Color"/>, and <see cref="Flipped"/>. The <see cref="Draw(ICanvas)"/> method is
-        /// used to render the texture on the specified canvas.</remarks>
+        /// rendering textures. The texture can be customized using properties such as scale, rotation, color, and flipping.
+        /// The <see cref="Draw(ICanvas)"/> method is used to render the texture on the specified canvas.</remarks>
         public class DrawableTexture : Drawable2d
         {
             /// <summary>
@@ -23,18 +22,6 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// </summary>
             [TypeOProperty("Gets or sets the texture associated with the object.")]
             public Texture Texture { get; set; }
-
-            /// <summary>
-            /// Gets or sets the scale of the object as a two-dimensional vector.
-            /// </summary>
-            [TypeOProperty("Gets or sets the scale of the object as a two-dimensional vector.", null)]
-            public Vec2 Scale { get; set; }
-
-            /// <summary>
-            /// Gets or sets the rotation angle, in degrees.
-            /// </summary>
-            [TypeOProperty("Gets or sets the rotation angle of the object in degrees.", 0.0)]
-            public double Rotation { get; set; }
 
             /// <summary>
             /// Gets or sets the color associated with the object.
@@ -49,25 +36,30 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public Flipped Flipped { get; set; }
 
             /// <summary>
-            /// Gets the size of the texture as a two-dimensional vector.
+            /// Gets or sets the size of the texture display area. If set to zero, the texture's natural size is used.
             /// </summary>
-            public override Vec2 Size { get { return Texture?.Size ?? Vec2.Zero; } set { } }
+            public override Vec2 Size 
+            { 
+                get { return base.Size == Vec2.Zero ? (Texture?.Size ?? Vec2.Zero) : base.Size; }
+                set { base.Size = value; }
+            }
+
+            /// <summary>
+            /// Gets or sets how the texture is rendered within the Size bounds.
+            /// </summary>
+            [TypeOProperty("Gets or sets how the texture is rendered within the Size bounds.")]
+            public SizeMode SizeMode { get; set; }
 
             /// <summary>
             /// Represents a drawable texture with properties for scaling, rotation, color, and flipping.
             /// </summary>
-            /// <remarks>This constructor initializes the drawable texture with default values:
-            /// <list type="bullet"> <item><description><see cref="Scale"/> is set to
-            /// <see cref="Vec2.One"/>.</description></item> <item><description><see cref="Rotation"/> is set to 0.
-            /// </description></item> <item><description><see cref="Color"/> is set to
-            /// <see cref="Color.White"/>.</description></item> <item><description><see cref="Flipped"/> is set to
-            /// <see cref="Flipped.None"/>.</description></item> </list></remarks>
+            /// <remarks>This constructor initializes the drawable texture with default values from the base Drawable2d class,
+            /// plus color set to white and flipping set to None.</remarks>
             public DrawableTexture() : base()
             {
-                Scale = Vec2.One;
-                Rotation = 0;
                 Color = Color.White;
                 Flipped = Flipped.None;
+                SizeMode = SizeMode.Clip;
             }
 
             /// <summary>
@@ -94,16 +86,29 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// rotation, color, and other properties.
             /// </summary>
             /// <remarks>This method renders the entity's texture on the provided canvas, applying
-            /// transformations such as scaling, rotation, and flipping. If the <see cref="Texture"/> property is
+            /// transformations such as scaling, rotation, flipping, and origin offset. If the <see cref="Texture"/> property is
             /// <see langword="null"/>, the method does not perform any drawing.</remarks>
             /// <param name="canvas">The canvas on which the entity will be drawn. Cannot be <see langword="null"/>.</param>
             public override void Draw(ICanvas canvas)
             {
                 if (Texture == null) return;
+
+                var displaySize = Size;
+                var drawScale = Scale;
+                var actualSize = Texture.Size * drawScale;
+
+                if (SizeMode == SizeMode.Stretch && displaySize != Vec2.Zero)
+                {
+                    drawScale = displaySize / Texture.Size;
+                    actualSize = displaySize;
+                }
+
+                var originOffset = actualSize * Origin;
+
                 canvas.DrawImage(
                     Texture,
-                    Position,
-                    scale: Scale,
+                    Position - originOffset,
+                    scale: drawScale,
                     rotation: Rotation,
                     color: Color,
                     flipped: Flipped,

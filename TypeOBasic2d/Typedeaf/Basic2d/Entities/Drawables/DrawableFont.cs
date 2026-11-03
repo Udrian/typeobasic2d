@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
@@ -54,21 +54,6 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// Gets the collection of lines associated with this instance.
             /// </summary>
             public List<string> Lines { get; protected set; }
-
-            /// <summary>
-            /// Gets or sets the scale of the object as a two-dimensional vector.
-            /// </summary>
-            public Vec2 Scale { get; set; }
-
-            /// <summary>
-            /// Gets or sets the size of the object as a two-dimensional vector.
-            /// </summary>
-            public override Vec2 Size { get; set; }
-
-            /// <summary>
-            /// Gets or sets the rotation angle, in degrees.
-            /// </summary>
-            public double Rotation { get; set; }
 
             /// <summary>
             /// Gets or sets the color associated with the object.
@@ -149,7 +134,11 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public override void Draw(ICanvas canvas)
             {
                 if(Font == null || Text == null) return;
-                var position = new Vec2(Position.X, Position.Y);
+                
+                var actualSize = Size * Scale;
+                var originOffset = actualSize * Origin;
+                var position = new Vec2(Position.X, Position.Y) - originOffset;
+                
                 var ySize = Font.MeasureString(Text).Y;
                 foreach (var line in Lines)
                 {
