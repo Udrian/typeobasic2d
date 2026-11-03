@@ -1,5 +1,6 @@
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
+using TypeOEngine.Typedeaf.Core.Entities;
 
 namespace TypeOEngine.Typedeaf.TypeOBasic2d
 {
@@ -29,10 +30,15 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public SizeMode? SizeMode { get; set; }
 
             /// <summary>
+            /// Gets or sets how the texture is flipped.
+            /// </summary>
+            public Flipped? Flipped { get; set; }
+
+            /// <summary>
             /// Creates and initializes a <see cref="DrawableTexture"/> object.
             /// </summary>
             /// <remarks>If the <see cref="Texture"/> property is not <see langword="null"/>, it will
-            /// be assigned to the <paramref name="obj"/> instance. Size and SizeMode options are also applied if provided.</remarks>
+            /// be assigned to the <paramref name="obj"/> instance. Size, SizeMode, and Flipped options are also applied if provided.</remarks>
             /// <param name="obj">The <see cref="DrawableTexture"/> instance to be initialized.</param>
             /// <returns><see langword="true"/> if the object was successfully created and initialized; otherwise,
             /// <see langword="false"/>.</returns>
@@ -46,6 +52,8 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     obj.Size = Size.Value;
                 if(SizeMode.HasValue)
                     obj.SizeMode = SizeMode.Value;
+                if(Flipped.HasValue)
+                    obj.Flipped = Flipped.Value;
 
                 return true;
             }

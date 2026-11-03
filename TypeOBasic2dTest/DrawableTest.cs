@@ -258,5 +258,223 @@ namespace TypeOBasic2dTest
             Assert.Equal(Flipped.None, drawable.Flipped);
             Assert.Null(drawable.Text);
         }
+
+        [Fact]
+        public void DrawableTexture_Flipped_CanBeSetToHorizontal()
+        {
+            var drawable = new DrawableTexture();
+            
+            drawable.Flipped = Flipped.Horizontal;
+            
+            Assert.Equal(Flipped.Horizontal, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableTexture_Flipped_CanBeSetToVertical()
+        {
+            var drawable = new DrawableTexture();
+            
+            drawable.Flipped = Flipped.Vertical;
+            
+            Assert.Equal(Flipped.Vertical, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableTexture_Flipped_CanBeSetToBoth()
+        {
+            var drawable = new DrawableTexture();
+            
+            drawable.Flipped = Flipped.Both;
+            
+            Assert.Equal(Flipped.Both, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableTexture_Draw_WithFlippedTexture_Works()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(16, 16)),
+                Flipped = Flipped.Horizontal
+            });
+
+            drawable.Draw(null);
+            
+            Assert.Equal(Flipped.Horizontal, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableTexture_Draw_WithBothFlips_Works()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(16, 16)),
+                Flipped = Flipped.Both
+            });
+
+            drawable.Draw(null);
+            
+            Assert.Equal(Flipped.Both, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableTextureOption_AppliesFlipped()
+        {
+            var owner = StartOwner();
+            var texture = new StubTexture(new Vec2i(4, 4));
+
+            var drawableH = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = texture,
+                Flipped = Flipped.Horizontal
+            });
+
+            var drawableV = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = texture,
+                Flipped = Flipped.Vertical
+            });
+
+            var drawableB = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = texture,
+                Flipped = Flipped.Both
+            });
+
+            Assert.Equal(Flipped.Horizontal, drawableH.Flipped);
+            Assert.Equal(Flipped.Vertical, drawableV.Flipped);
+            Assert.Equal(Flipped.Both, drawableB.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFont_Flipped_CanBeSetToHorizontal()
+        {
+            var drawable = new DrawableFont();
+            
+            drawable.Flipped = Flipped.Horizontal;
+            
+            Assert.Equal(Flipped.Horizontal, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFont_Flipped_CanBeSetToVertical()
+        {
+            var drawable = new DrawableFont();
+            
+            drawable.Flipped = Flipped.Vertical;
+            
+            Assert.Equal(Flipped.Vertical, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFont_Flipped_CanBeSetToBoth()
+        {
+            var drawable = new DrawableFont();
+            
+            drawable.Flipped = Flipped.Both;
+            
+            Assert.Equal(Flipped.Both, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFont_Draw_WithFlippedText_Works()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = new StubFont(),
+                Text = "Hello",
+                Flipped = Flipped.Horizontal
+            });
+
+            drawable.Draw(null);
+            
+            Assert.Equal(Flipped.Horizontal, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFont_Draw_WithBothFlips_Works()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = new StubFont(),
+                Text = "Hello",
+                Flipped = Flipped.Both
+            });
+
+            drawable.Draw(null);
+            
+            Assert.Equal(Flipped.Both, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFontOption_AppliesFlipped()
+        {
+            var owner = StartOwner();
+            var font = new StubFont();
+
+            var drawableH = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = font,
+                Text = "Test",
+                Flipped = Flipped.Horizontal
+            });
+
+            var drawableV = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = font,
+                Text = "Test",
+                Flipped = Flipped.Vertical
+            });
+
+            var drawableB = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = font,
+                Text = "Test",
+                Flipped = Flipped.Both
+            });
+
+            Assert.Equal(Flipped.Horizontal, drawableH.Flipped);
+            Assert.Equal(Flipped.Vertical, drawableV.Flipped);
+            Assert.Equal(Flipped.Both, drawableB.Flipped);
+        }
+
+        [Fact]
+        public void DrawableTexture_Flipped_PreservesAcrossMultipleDraw_Calls()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(16, 16)),
+                Flipped = Flipped.Vertical
+            });
+
+            drawable.Draw(null);
+            Assert.Equal(Flipped.Vertical, drawable.Flipped);
+            
+            drawable.Draw(null);
+            Assert.Equal(Flipped.Vertical, drawable.Flipped);
+        }
+
+        [Fact]
+        public void DrawableFont_Flipped_PreservesAcrossMultipleDraw_Calls()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = new StubFont(),
+                Text = "Hello",
+                Flipped = Flipped.Horizontal
+            });
+
+            drawable.Draw(null);
+            Assert.Equal(Flipped.Horizontal, drawable.Flipped);
+            
+            drawable.Draw(null);
+            Assert.Equal(Flipped.Horizontal, drawable.Flipped);
+        }
     }
 }

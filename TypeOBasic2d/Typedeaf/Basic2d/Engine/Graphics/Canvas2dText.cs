@@ -1,6 +1,7 @@
 ﻿using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Core.Entities;
 using TypeOEngine.Typedeaf.TK.Contents;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
@@ -32,7 +33,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             if (canvas is TKCanvas tkCanvas && font is TKFont tkFont)
             {
                 pos = (pos + origin) ?? pos;
-                tkFont.Draw(text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White);
+                tkFont.Draw(text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White, flipped);
             }
         }
     }

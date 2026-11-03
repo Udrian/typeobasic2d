@@ -3,6 +3,7 @@ using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Core.Entities;
 
 namespace TypeOEngine.Typedeaf.TypeOBasic2d
 {
