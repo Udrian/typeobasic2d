@@ -1,13 +1,36 @@
 {
-    "name": "TypeOBasic2d",
-    "version": "0.1.0",
-    "externals": ["Mock/Resources/Lato-Black.ttf;test", "Mock/Resources/texture.png;test"],
-    "dependencies": [
-        "Udrian@TypeOCore-0.1.0.dev",
-        "Udrian@TypeOTK-0.1.0.dev",
-        "Udrian@TypeD-0.1.0.dev;dev"
-    ],
-    "type" : "module",
-    "devModuleName": "TypeDBasic2d",
-    "testName": "TypeOBasic2dTest"
+  "name": "TypeOBasic2d",
+  "version": "0.1.0",
+  "externals": [
+    "Mock/Resources/Lato-Black.ttf;test",
+    "Mock/Resources/texture.png;test"
+  ],
+  "dependencies": [
+    "Udrian@TypeOCore-0.1.0.dev",
+    "Udrian@TypeOTK-0.1.0.dev",
+    "Udrian@TypeD-0.1.0.dev;dev"
+  ],
+  "type": "module",
+  "project": [
+    {
+      "Name": "TypeOBasic2d",
+      "type": "",
+      "depends_on": []
+    },
+    {
+      "Name": "TypeDBasic2d",
+      "type": "dev",
+      "depends_on": [
+        "TypeOBasic2d"
+      ]
+    },
+    {
+      "Name": "TypeOBasic2dTest",
+      "type": "test",
+      "depends_on": [
+        "TypeOBasic2d",
+        "TypeDBasic2d"
+      ]
+    }
+  ]
 }
