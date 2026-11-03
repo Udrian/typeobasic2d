@@ -1,4 +1,5 @@
-﻿using TypeOEngine.Typedeaf.Core.Common;
+using OpenTK.Graphics.OpenGL4;
+using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.Core.Entities;
@@ -37,6 +38,13 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 pos = (pos + anchor?.Position) ?? pos;
                 pos = (pos + origin) ?? pos;
 
+                // Enable scissor test if source clipping is specified
+                if (source.HasValue)
+                {
+                    var sourceRect = source.Value;
+                    EnableScissorTest(tkCanvas, sourceRect);
+                }
+
                 ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White);
                 tkTexture.Use();
 
@@ -51,7 +59,45 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 // Reset texture coordinates to default state for next draw
                 if (flipped != Flipped.None)
                     ResetFlipping(TexturedPrimitive);
+
+                // Disable scissor test after drawing
+                if (source.HasValue)
+                {
+                    DisableScissorTest();
+                }
             }
+        }
+
+        /// <summary>
+        /// Enables scissor test for clipping drawing to a specific rectangle.
+        /// </summary>
+        /// <param name="canvas">The canvas to apply scissor test on</param>
+        /// <param name="clipRect">The rectangle to clip drawing to</param>
+        private static void EnableScissorTest(TKCanvas canvas, Rectangle clipRect)
+        {
+            // Convert from world coordinates to screen coordinates
+            // OpenGL scissor coordinates have origin at bottom-left, Y increases upward
+            int screenX = (int)clipRect.Pos.X;
+            int screenY = (int)(canvas.Viewport.Size.Y - clipRect.Pos.Y - clipRect.Size.Y);
+            int screenWidth = (int)clipRect.Size.X;
+            int screenHeight = (int)clipRect.Size.Y;
+
+            // Clamp values to viewport
+            screenX = System.Math.Max(0, screenX);
+            screenY = System.Math.Max(0, screenY);
+            screenWidth = System.Math.Min(screenWidth, (int)canvas.Viewport.Size.X - screenX);
+            screenHeight = System.Math.Min(screenHeight, (int)canvas.Viewport.Size.Y - screenY);
+
+            GL.Enable(EnableCap.ScissorTest);
+            GL.Scissor(screenX, screenY, screenWidth, screenHeight);
+        }
+
+        /// <summary>
+        /// Disables scissor test after clipping is complete.
+        /// </summary>
+        private static void DisableScissorTest()
+        {
+            GL.Disable(EnableCap.ScissorTest);
         }
 
         /// <summary>

@@ -308,27 +308,40 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             {
                 var position = DragStartPosition;
                 var size = DragStartSize;
+                
+                // Get the scale of the drawable to account for it when resizing
+                var scale = Vec2.One;
+                if (TypeOObject is Drawable2d drawable)
+                {
+                    scale = drawable.Scale;
+                }
+                
+                // Divide delta by scale to get the actual size change
+                var scaledDelta = new Vec2(
+                    scale.X > 0 ? delta.X / scale.X : delta.X,
+                    scale.Y > 0 ? delta.Y / scale.Y : delta.Y
+                );
 
                 if (DragResizeAxes.HasFlag(ResizeAxes.Left))
                 {
-                    var width = Math.Max(MinimumSize, DragStartSize.X - delta.X);
+                    var width = Math.Max(MinimumSize, DragStartSize.X - scaledDelta.X);
                     position.X = DragStartPosition.X + DragStartSize.X - width;
                     size.X = width;
                 }
                 else if (DragResizeAxes.HasFlag(ResizeAxes.Right))
                 {
-                    size.X = Math.Max(MinimumSize, DragStartSize.X + delta.X);
+                    size.X = Math.Max(MinimumSize, DragStartSize.X + scaledDelta.X);
                 }
 
                 if (DragResizeAxes.HasFlag(ResizeAxes.Top))
                 {
-                    var height = Math.Max(MinimumSize, DragStartSize.Y - delta.Y);
+                    var height = Math.Max(MinimumSize, DragStartSize.Y - scaledDelta.Y);
                     position.Y = DragStartPosition.Y + DragStartSize.Y - height;
                     size.Y = height;
                 }
                 else if (DragResizeAxes.HasFlag(ResizeAxes.Bottom))
                 {
-                    size.Y = Math.Max(MinimumSize, DragStartSize.Y + delta.Y);
+                    size.Y = Math.Max(MinimumSize, DragStartSize.Y + scaledDelta.Y);
                 }
 
                 SetObjectPosition(position);

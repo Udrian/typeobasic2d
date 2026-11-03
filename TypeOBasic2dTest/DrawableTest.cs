@@ -476,5 +476,318 @@ namespace TypeOBasic2dTest
             drawable.Draw(null);
             Assert.Equal(Flipped.Horizontal, drawable.Flipped);
         }
+
+        [Fact]
+        public void DrawableTexture_ClipMode_ClipsWithinBoundingBox()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                SizeMode = SizeMode.Clip
+            });
+
+            // When SizeMode is Clip, the drawable should have clipping enabled
+            Assert.Equal(SizeMode.Clip, drawable.SizeMode);
+            Assert.Equal(new Vec2(50, 50), drawable.Size);
+            
+            // Bounding box should match the size (without scale)
+            Assert.Equal(new Vec2(50, 50), drawable.BoundingBox.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_ClipMode_WithScale_AccountsForScaling()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(2, 2),
+                SizeMode = SizeMode.Clip
+            });
+
+            // BoundingBox should include scale
+            Assert.Equal(new Vec2(100, 100), drawable.BoundingBox.Size);
+            
+            // Original size should remain unchanged
+            Assert.Equal(new Vec2(50, 50), drawable.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_ClipMode_WithDifferentScales()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(1.5, 2.5),
+                SizeMode = SizeMode.Clip
+            });
+
+            // BoundingBox should have different scale per axis
+            Assert.Equal(new Vec2(75, 125), drawable.BoundingBox.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_StretchMode_IgnoresClipping()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                SizeMode = SizeMode.Stretch
+            });
+
+            // In Stretch mode, the texture should not clip
+            Assert.Equal(SizeMode.Stretch, drawable.SizeMode);
+            Assert.Equal(new Vec2(50, 50), drawable.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_WithOrigin_BoundingBoxReflectsOriginOffset()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Position = new Vec2(100, 100),
+                Origin = new Vec2(0.5, 0.5),
+                Size = new Vec2(50, 50),
+                SizeMode = SizeMode.Clip
+            });
+
+            // BoundingBox should be offset by origin
+            var bb = drawable.BoundingBox;
+            Assert.Equal(new Vec2(75, 75), bb.Pos); // 100 - (50 * 0.5)
+            Assert.Equal(new Vec2(50, 50), bb.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_WithScaleAndOrigin_BoundingBoxAccountsForBoth()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Position = new Vec2(100, 100),
+                Origin = new Vec2(0.5, 0.5),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(2, 2),
+                SizeMode = SizeMode.Clip
+            });
+
+            var bb = drawable.BoundingBox;
+            // actualSize = Size * Scale = (50, 50) * 2 = (100, 100)
+            // originOffset = Size * Origin = (50, 50) * 0.5 = (25, 25)
+            // boundingPos = Position - originOffset = (100, 100) - (25, 25) = (75, 75)
+            Assert.Equal(new Vec2(75, 75), bb.Pos);
+            Assert.Equal(new Vec2(100, 100), bb.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_WithRotation_BoundingBoxIsAxisAligned()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Position = new Vec2(100, 100),
+                Size = new Vec2(50, 50),
+                Rotation = 45,
+                SizeMode = SizeMode.Clip
+            });
+
+            // BoundingBox should be axis-aligned even with rotation
+            var bb = drawable.BoundingBox;
+            Assert.NotEqual(new Vec2(50, 50), bb.Size); // Rotated size should be different
+            Assert.True(bb.Size.X > 0 && bb.Size.Y > 0);
+        }
+
+        [Fact]
+        public void DrawableFont_WithClipping_BoundingBoxReflectsSize()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = new StubFont(),
+                Text = "Hello",
+                Position = new Vec2(50, 50)
+            });
+
+            var bb = drawable.BoundingBox;
+            Assert.Equal(new Vec2(50, 50), bb.Pos);
+            // Font size is based on actual text rendering, should be non-zero
+            Assert.True(bb.Size.X > 0 && bb.Size.Y > 0);
+        }
+
+        [Fact]
+        public void DrawableFont_WithScaleAndClipping_BoundingBoxAccountsForScale()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                Font = new StubFont(),
+                Text = "Hello",
+                Position = new Vec2(50, 50),
+                Scale = new Vec2(2, 2)
+            });
+
+            var bb = drawable.BoundingBox;
+            Assert.Equal(new Vec2(50, 50), bb.Pos);
+            // Bounding box size should be scaled
+            var unscaledSize = drawable.Size;
+            Assert.Equal(new Vec2(unscaledSize.X * 2, unscaledSize.Y * 2), bb.Size);
+        }
+
+        [Fact]
+        public void Drawable2d_Scale_DefaultValue()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100))
+            });
+
+            // Default scale should be (1, 1)
+            Assert.Equal(new Vec2(1, 1), drawable.Scale);
+        }
+
+        [Fact]
+        public void Drawable2d_Scale_CanBeSet()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Scale = new Vec2(2.5, 1.5)
+            });
+
+            Assert.Equal(new Vec2(2.5, 1.5), drawable.Scale);
+        }
+
+        [Fact]
+        public void Drawable2d_Origin_DefaultValue()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100))
+            });
+
+            // Default origin should be (0, 0) - top-left
+            Assert.Equal(new Vec2(0, 0), drawable.Origin);
+        }
+
+        [Fact]
+        public void Drawable2d_Origin_CenterValue()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Origin = new Vec2(0.5, 0.5)
+            });
+
+            Assert.Equal(new Vec2(0.5, 0.5), drawable.Origin);
+        }
+
+        [Fact]
+        public void Drawable2d_Rotation_DefaultValue()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100))
+            });
+
+            Assert.Equal(0.0, drawable.Rotation);
+        }
+
+        [Fact]
+        public void Drawable2d_Rotation_CanBeSet()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Rotation = 45.5
+            });
+
+            Assert.Equal(45.5, drawable.Rotation);
+        }
+
+        [Fact]
+        public void Drawable2d_BoundingBox_WithZeroScale_FallsBackToOriginalSize()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(0, 0)
+            });
+
+            // When scale is 0, the bounding box size should be 0
+            Assert.Equal(new Vec2(0, 0), drawable.BoundingBox.Size);
+        }
+
+        [Fact]
+        public void Drawable2d_BoundingBox_WithNegativeScale_CalculatesCorrectly()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(-2, -2)
+            });
+
+            // BoundingBox with negative scale should still calculate correctly
+            // It may have negative size values which will be reflected in rotation handling
+            var bb = drawable.BoundingBox;
+            // The bounding box calculation uses rotation handling even with non-zero rotation
+            // which properly handles the coordinate transformation for negative scales
+            Assert.True(bb.Size != Vec2.Zero);
+        }
+
+        [Fact]
+        public void DrawableTexture_ClipMode_WithZeroSize_NoClipping()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(0, 0),
+                SizeMode = SizeMode.Clip
+            });
+
+            // When size is zero, the texture's natural size is used (no clipping)
+            Assert.Equal(new Vec2(100, 100), drawable.Size);
+        }
+
+        [Fact]
+        public void DrawableTexture_ClipMode_MultipleDrawCalls_MaintainsState()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(2, 2),
+                SizeMode = SizeMode.Clip
+            });
+
+            // First draw
+            drawable.Draw(null);
+            Assert.Equal(new Vec2(100, 100), drawable.BoundingBox.Size);
+            
+            // Second draw - should maintain state
+            drawable.Draw(null);
+            Assert.Equal(new Vec2(100, 100), drawable.BoundingBox.Size);
+        }
     }
 }

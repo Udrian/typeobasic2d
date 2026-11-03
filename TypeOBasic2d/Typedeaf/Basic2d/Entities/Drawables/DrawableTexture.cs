@@ -106,6 +106,13 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
                 var originOffset = actualSize * Origin;
 
+                // When SizeMode is Clip and Size is set, use the bounding box as the clipping region
+                Rectangle? sourceRect = null;
+                if (SizeMode == SizeMode.Clip && displaySize != Vec2.Zero)
+                {
+                    sourceRect = new Rectangle(Position - originOffset, displaySize * drawScale);
+                }
+
                 canvas.DrawImage(
                     Texture,
                     Position - originOffset,
@@ -113,6 +120,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     rotation: Rotation,
                     color: Color,
                     flipped: Flipped,
+                    source: sourceRect,
                     anchor: Parent as Entity2d
                 );
             }

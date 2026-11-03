@@ -1,4 +1,5 @@
-﻿using TypeOEngine.Typedeaf.Core.Common;
+using OpenTK.Graphics.OpenGL4;
+using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.Core.Entities;
@@ -33,7 +34,21 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             if (canvas is TKCanvas tkCanvas && font is TKFont tkFont)
             {
                 pos = (pos + origin) ?? pos;
+
+                // Enable scissor test if source clipping is specified
+                if (source.HasValue)
+                {
+                    var sourceRect = source.Value;
+                    EnableScissorTest(tkCanvas, sourceRect);
+                }
+
                 tkFont.Draw(text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White, flipped);
+
+                // Disable scissor test after drawing
+                if (source.HasValue)
+                {
+                    DisableScissorTest();
+                }
             }
         }
     }
