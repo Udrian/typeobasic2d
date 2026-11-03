@@ -20,6 +20,9 @@ using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 
 namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 {
+    /// <summary>
+    /// Editor overlay that outlines a 2D component and lets the user move or resize it with the mouse.
+    /// </summary>
     public class Debug2DDrawable : Drawable2d
     {
         [Flags]
@@ -39,16 +42,50 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private static readonly ConditionalWeakTable<MouseInputService, object> MouseServicesWithLeftButtonAlias = new();
         private static Debug2DDrawable PointerOwner;
 
+        /// <summary>
+        /// Gets or sets the size of the outlined area.
+        /// </summary>
         public override Vec2 Size { get; set; }
         private List<Vec2> Lines { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the outlined object is focused (selected).
+        /// </summary>
         public bool Focused { get; set; }
+
+        /// <summary>
+        /// Gets or sets the mouse input service used to read pointer state.
+        /// </summary>
         public MouseInputService MouseInputService { get; set; }
+
+        /// <summary>
+        /// Gets or sets the object being edited.
+        /// </summary>
         public TypeOObject TypeOObject { get; set; }
+
+        /// <summary>
+        /// Gets or sets the component the edited object belongs to.
+        /// </summary>
         public Component Component { get; set; }
+
+        /// <summary>
+        /// Gets or sets the project containing the component.
+        /// </summary>
         public Project Project { get; set; }
+
+        /// <summary>
+        /// Gets or sets the hook model used when applying changes.
+        /// </summary>
         public IHookModel HookModel { get; set; }
+
+        /// <summary>
+        /// Gets or sets the registry used to execute editor commands.
+        /// </summary>
         public IEditorCommandRegistry EditorCommandRegistry { get; set; }
+
+        /// <summary>
+        /// Gets or sets the model providing the active editor tool.
+        /// </summary>
         public IEditorToolModel EditorToolModel { get; set; }
 
         private Vec2 DragStartMouse { get; set; }
@@ -60,6 +97,10 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private bool IsDraggingY { get; set; }
         private ResizeAxes DragResizeAxes { get; set; }
 
+        /// <summary>
+        /// Draws the outline and the gizmo of the active tool, and processes pointer interaction.
+        /// </summary>
+        /// <param name="canvas">The canvas to draw on.</param>
         public override void Draw(ICanvas canvas)
         {
             if (MouseInputService == null)
@@ -95,11 +136,17 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 DrawResizeHandles(canvas, pos, Size);
         }
 
+        /// <summary>
+        /// Releases pointer ownership held by this drawable.
+        /// </summary>
         protected override void Cleanup()
         {
             ReleasePointer();
         }
 
+        /// <summary>
+        /// Sets up the outline points and draws this overlay above everything else.
+        /// </summary>
         protected override void Initialize()
         {
             DrawOrder = int.MaxValue;
@@ -108,10 +155,21 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             UpdateLines();
         }
 
+        /// <summary>
+        /// Gets the top-left position of the outlined area on screen.
+        /// </summary>
         public Vec2 ScreenPosition => GetPos();
 
+        /// <summary>
+        /// Determines whether a screen point lies inside the outlined area.
+        /// </summary>
+        /// <param name="point">The screen point to test.</param>
+        /// <returns><c>true</c> if the point is inside the area; otherwise <c>false</c>.</returns>
         public bool ContainsPoint(Vec2 point) => Contains(GetPos(), Size, point);
 
+        /// <summary>
+        /// Recomputes the outline points from the current position and size.
+        /// </summary>
         public void UpdateLines()
         {
             if (Lines == null)

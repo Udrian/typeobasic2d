@@ -5,6 +5,9 @@ using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 
 namespace TypeDBasic2d.Components
 {
+    /// <summary>
+    /// Factory methods for the TypeOBasic2d component definitions.
+    /// </summary>
     public static partial class Basic2dComponent
     {
         /// <summary>

@@ -4,6 +4,9 @@ namespace TypeDBasic2d.Code.Drawable
 {
     public partial class Drawable2dCode : DrawableCode
     {
+        /// <summary>
+        /// Adds the 2D drawable specific usings and the <c>Size</c> property override to the generated TypeD class.
+        /// </summary>
         protected override void InitTypeDClass()
         {
             if (IsBaseComponentType)
