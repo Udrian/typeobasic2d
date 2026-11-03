@@ -18,7 +18,7 @@ namespace TypeOBasic2dTest.TypeTest
             Assert.NotNull(tkGameService);
 
             GLFWProvider.CheckForMainThread = false;
-            var tkGameWindow = tkGameService.CreateTKGameWindow(new NativeWindowSettings() { Size = new OpenTK.Mathematics.Vector2i(640, 320) });
+            var tkGameWindow = tkGameService.CreateTKGameWindow(new NativeWindowSettings() { ClientSize = new OpenTK.Mathematics.Vector2i(640, 320) });
             Assert.NotNull(tkGameWindow);
             tkGameWindow.MakeCurrent();
 
