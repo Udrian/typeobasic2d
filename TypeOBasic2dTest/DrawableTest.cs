@@ -100,7 +100,10 @@ namespace TypeOBasic2dTest
             };
 
             var box = drawable.BoundingBox;
-            Assert.Equal(new Vec2(15, 15), box.Pos);
+            // scaledSize = Size * Scale = (10, 10) * (2, 2) = (20, 20)
+            // originOffset = scaledSize * Origin = (20, 20) * (0.5, 0.5) = (10, 10)
+            // boundingPos = Position - originOffset = (20, 20) - (10, 10) = (10, 10)
+            Assert.Equal(new Vec2(10, 10), box.Pos);
             Assert.Equal(new Vec2(20, 20), box.Size);
         }
 
@@ -548,6 +551,25 @@ namespace TypeOBasic2dTest
         }
 
         [Fact]
+        public void DrawableTexture_StretchMode_WithScale_AppliesScaleToStretchedSize()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Size = new Vec2(50, 50),
+                Scale = new Vec2(2, 2),
+                SizeMode = SizeMode.Stretch
+            });
+
+            // With Stretch mode, Size = (50, 50), Texture.Size = (100, 100)
+            // stretchScale = (50, 50) / (100, 100) = (0.5, 0.5)
+            // drawScale = (0.5, 0.5) * (2, 2) = (1, 1)
+            // BoundingBox.Size = (50, 50) * (2, 2) = (100, 100)
+            Assert.Equal(new Vec2(100, 100), drawable.BoundingBox.Size);
+        }
+
+        [Fact]
         public void DrawableTexture_WithOrigin_BoundingBoxReflectsOriginOffset()
         {
             var owner = StartOwner();
@@ -581,10 +603,10 @@ namespace TypeOBasic2dTest
             });
 
             var bb = drawable.BoundingBox;
-            // actualSize = Size * Scale = (50, 50) * 2 = (100, 100)
-            // originOffset = Size * Origin = (50, 50) * 0.5 = (25, 25)
-            // boundingPos = Position - originOffset = (100, 100) - (25, 25) = (75, 75)
-            Assert.Equal(new Vec2(75, 75), bb.Pos);
+            // scaledSize = Size * Scale = (50, 50) * 2 = (100, 100)
+            // originOffset = scaledSize * Origin = (100, 100) * 0.5 = (50, 50)
+            // boundingPos = Position - originOffset = (100, 100) - (50, 50) = (50, 50)
+            Assert.Equal(new Vec2(50, 50), bb.Pos);
             Assert.Equal(new Vec2(100, 100), bb.Size);
         }
 

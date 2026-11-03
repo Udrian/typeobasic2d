@@ -100,8 +100,9 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
                 if (SizeMode == SizeMode.Stretch && displaySize != Vec2.Zero)
                 {
-                    drawScale = displaySize / Texture.Size;
-                    actualSize = displaySize;
+                    var stretchScale = displaySize / Texture.Size;
+                    drawScale = stretchScale * Scale;
+                    actualSize = displaySize * Scale;
                 }
 
                 var originOffset = actualSize * Origin;

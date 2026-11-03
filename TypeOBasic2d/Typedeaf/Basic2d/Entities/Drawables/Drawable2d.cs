@@ -53,7 +53,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 {
                     var size = Size;
                     var scaledSize = size * Scale;
-                    var originOffset = size * Origin;
+                    var originOffset = scaledSize * Origin;
                     var boundingPos = Position - originOffset;
 
                     if (Rotation == 0)
