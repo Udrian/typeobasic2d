@@ -484,6 +484,6 @@ $RECYCLE.BIN/
 *.swp
 
 # TypeO
-dependency_override
+typeo_override.json
 *.sln
 *.csproj
