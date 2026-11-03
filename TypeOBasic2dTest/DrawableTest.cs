@@ -811,5 +811,44 @@ namespace TypeOBasic2dTest
             drawable.Draw(null);
             Assert.Equal(new Vec2(100, 100), drawable.BoundingBox.Size);
         }
+
+        [Fact]
+        public void Drawable2d_Origin_CanBeSetToAnyValue()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100))
+            });
+
+            // Test setting origin to center
+            drawable.Origin = new Vec2(0.5, 0.5);
+            Assert.Equal(new Vec2(0.5, 0.5), drawable.Origin);
+
+            // Test setting origin outside bounds
+            drawable.Origin = new Vec2(-1, -1);
+            Assert.Equal(new Vec2(-1, -1), drawable.Origin);
+
+            // Test setting origin to bottom-right
+            drawable.Origin = new Vec2(1, 1);
+            Assert.Equal(new Vec2(1, 1), drawable.Origin);
+        }
+
+        [Fact]
+        public void Drawable2d_Origin_AffectsBoundingBoxPosition()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableTexture>(option: new DrawableTextureOption
+            {
+                Texture = new StubTexture(new Vec2i(100, 100)),
+                Position = new Vec2(200, 200),
+                Size = new Vec2(100, 100),
+                Origin = new Vec2(0.5, 0.5)
+            });
+
+            var bb = drawable.BoundingBox;
+            // Position - (Size * Origin) = (200, 200) - (100, 100) * (0.5, 0.5) = (200, 200) - (50, 50) = (150, 150)
+            Assert.Equal(new Vec2(150, 150), bb.Pos);
+        }
     }
 }

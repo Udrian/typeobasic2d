@@ -87,6 +87,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private Vec2 DragStartMouse { get; set; }
         private Vec2 DragStartPosition { get; set; }
         private Vec2 DragStartSize { get; set; }
+        private Vec2 DragStartOrigin { get; set; }
+        private Vec2 PreviewOrigin { get; set; }
         private bool IsDragging { get; set; }
         private EditorTool DragTool { get; set; }
         private bool IsDraggingX { get; set; }
@@ -148,6 +150,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 DrawMoveGizmo(canvas, pos, size);
             else if (EditorToolModel.ActiveTool == EditorTool.Resize)
                 DrawResizeHandles(canvas, pos, size);
+            else if (EditorToolModel.ActiveTool == EditorTool.Origin)
+                DrawOriginGizmo(canvas, pos, size);
         }
 
         /// <summary>
@@ -267,6 +271,11 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             {
                 TryGetResizeAxes(mousePos, boundsPos, boundSize, out resizeAxes);
             }
+            else if (tool == EditorTool.Origin && Focused && TypeOObject is Drawable2d)
+            {
+                // For Origin tool, allow interaction anywhere within the bounding box
+                isHovered = true;
+            }
 
             if (!isHovered && !isDraggingX && !isDraggingY && resizeAxes == ResizeAxes.None)
                 return;
@@ -286,6 +295,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             DragStartMouse = mousePos;
             DragStartPosition = GetObjectPosition();
             DragStartSize = GetObjectSize();
+            DragStartOrigin = GetObjectOrigin();
         }
 
         private void UpdateDrag(Vec2 mousePos)
@@ -347,6 +357,26 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 SetObjectPosition(position);
                 SetObjectSize(size);
             }
+            else if (DragTool == EditorTool.Origin && TypeOObject is Drawable2d drawable)
+            {
+                // Calculate the bounding box of the drawable
+                var boundingBox = drawable.BoundingBox;
+                var boundingBoxPos = boundingBox.Pos;
+                var boundingBoxSize = boundingBox.Size;
+
+                // Get the parent's screen position if any
+                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
+                var screenBoundingBoxPos = boundingBoxPos + parentPosition;
+
+                // Calculate where the click is relative to the bounding box
+                var relativePos = mousePos - screenBoundingBoxPos;
+
+                // Convert to normalized origin coordinates (0 to 1 is within bounds, can be outside)
+                PreviewOrigin = new Vec2(
+                    boundingBoxSize.X > 0 ? relativePos.X / boundingBoxSize.X : 0,
+                    boundingBoxSize.Y > 0 ? relativePos.Y / boundingBoxSize.Y : 0
+                );
+            }
 
             UpdateLines();
         }
@@ -355,10 +385,13 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         {
             var position = GetObjectPosition();
             var size = GetObjectSize();
+            var origin = DragTool == EditorTool.Origin ? PreviewOrigin : GetObjectOrigin();
             if (position != DragStartPosition)
                 ExecutePropertyChange("Position", position);
             if (size != DragStartSize)
                 ExecutePropertyChange("Size", size);
+            if (origin != DragStartOrigin)
+                ExecutePropertyChange("Origin", origin);
         }
 
         private void ExecutePropertyChange(string propertyName, Vec2 value)
@@ -467,6 +500,41 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
         }
 
+        private void DrawOriginGizmo(ICanvas canvas, Vec2 pos, Vec2 size)
+        {
+            if (TypeOObject is not Drawable2d drawable)
+                return;
+
+            // Use preview origin during drag, otherwise use the actual origin
+            var origin = IsDragging && DragTool == EditorTool.Origin ? PreviewOrigin : drawable.Origin;
+            var originScreenPos = pos + (size * origin);
+
+            // Draw a circle around the origin point
+            const double circleRadius = 12;
+            DrawCircle(canvas, originScreenPos, circleRadius, Color.Yellow);
+
+            // Draw a cross at the origin point
+            const double crossSize = 8;
+            canvas.DrawLineA(originScreenPos - new Vec2(crossSize, 0), originScreenPos + new Vec2(crossSize, 0), Color.Yellow);
+            canvas.DrawLineA(originScreenPos - new Vec2(0, crossSize), originScreenPos + new Vec2(0, crossSize), Color.Yellow);
+        }
+
+        private static void DrawCircle(ICanvas canvas, Vec2 center, double radius, Color color)
+        {
+            const int segments = 24;
+            var angle = 0.0;
+            var angleStep = 2 * Math.PI / segments;
+            var previousPoint = center + new Vec2(Math.Cos(angle) * radius, Math.Sin(angle) * radius);
+
+            for (int i = 1; i <= segments; i++)
+            {
+                angle = i * angleStep;
+                var currentPoint = center + new Vec2(Math.Cos(angle) * radius, Math.Sin(angle) * radius);
+                canvas.DrawLineA(previousPoint, currentPoint, color);
+                previousPoint = currentPoint;
+            }
+        }
+
         private static bool TryGetResizeAxes(Vec2 mousePos, Vec2 pos, Vec2 size, out ResizeAxes axes)
         {
             axes = ResizeAxes.None;
@@ -539,6 +607,19 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             else if (TypeOObject is Drawable2d drawable)
                 drawable.Size = size;
             Size = size;
+        }
+
+        private Vec2 GetObjectOrigin()
+        {
+            if (TypeOObject is Drawable2d drawable)
+                return drawable.Origin;
+            return Vec2.Zero;
+        }
+
+        private void SetObjectOrigin(Vec2 origin)
+        {
+            if (TypeOObject is Drawable2d drawable)
+                drawable.Origin = origin;
         }
 
         private Vec2 GetPos()
