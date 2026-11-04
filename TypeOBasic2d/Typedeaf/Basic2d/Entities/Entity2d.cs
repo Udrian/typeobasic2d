@@ -15,27 +15,27 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the position represented by a two-dimensional vector.
             /// </summary>
-            [TypeOProperty("Gets or sets the position represented by a two-dimensional vector.")]
+            [TypeOProperty("Gets or sets the position represented by a two-dimensional vector.", Group = "Transform")]
             public virtual Vec2   Position { get; set; }
             /// <summary>
             /// Gets or sets the scaling factor applied to the object along the X and Y axes.
             /// </summary>
-            [TypeOProperty("Gets or sets the scaling factor applied to the object along the X and Y axes.")]
+            [TypeOProperty("Gets or sets the scaling factor applied to the object along the X and Y axes.", Group = "Transform")]
             public virtual Vec2   Scale    { get; set; }
             /// <summary>
             /// Gets or sets the rotation angle, in degrees, applied to the object.
             /// </summary>
-            [TypeOProperty("Gets or sets the rotation angle, in degrees, applied to the object.")]
+            [TypeOProperty("Gets or sets the rotation angle, in degrees, applied to the object.", Group = "Transform")]
             public virtual double Rotation { get; set; }
             /// <summary>
             /// Gets or sets the two-dimensional size of the object.
             /// </summary>
-            [TypeOProperty("Gets or sets the two-dimensional size of the object.")]
+            [TypeOProperty("Gets or sets the two-dimensional size of the object.", Group = "Transform")]
             public virtual Vec2   Size     { get; set; }
             /// <summary>
             /// Gets or sets the origin point of the object in 2D space.
             /// </summary>
-            [TypeOProperty("Gets or sets the origin point of the object in 2D space.")]
+            [TypeOProperty("Gets or sets the origin point of the object in 2D space.", Group = "Transform")]
             public virtual Vec2   Origin   { get; set; }
 
             /// <summary>

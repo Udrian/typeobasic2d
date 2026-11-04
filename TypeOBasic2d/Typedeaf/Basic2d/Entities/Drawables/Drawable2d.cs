@@ -17,31 +17,31 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the position of the object in 2D space.
             /// </summary>
-            [TypeOProperty("Gets or sets the position of the object in 2D space.")]
+            [TypeOProperty("Gets or sets the position of the object in 2D space.", Group = "Transform")]
             public Vec2 Position { get; set; }
 
             /// <summary>
             /// Gets or sets the origin point that the Position refers to. (0,0) is top-left, (0.5,0.5) is center.
             /// </summary>
-            [TypeOProperty("Gets or sets the origin point that the Position refers to.")]
+            [TypeOProperty("Gets or sets the origin point that the Position refers to.", Group = "Transform")]
             public Vec2 Origin { get; set; }
 
             /// <summary>
             /// Gets or sets the size of the object as a two-dimensional vector.
             /// </summary>
-            [TypeOProperty("Gets or sets the size of the object as a two-dimensional vector.")]
+            [TypeOProperty("Gets or sets the size of the object as a two-dimensional vector.", Group = "Transform")]
             public virtual Vec2 Size { get; set; }
 
             /// <summary>
             /// Gets or sets the scale of the object as a two-dimensional vector.
             /// </summary>
-            [TypeOProperty("Gets or sets the scale of the object as a two-dimensional vector.", null)]
+            [TypeOProperty("Gets or sets the scale of the object as a two-dimensional vector.", null, Group = "Transform")]
             public Vec2 Scale { get; set; }
 
             /// <summary>
             /// Gets or sets the rotation angle, in degrees.
             /// </summary>
-            [TypeOProperty("Gets or sets the rotation angle of the object in degrees.", 0.0)]
+            [TypeOProperty("Gets or sets the rotation angle of the object in degrees.", 0.0, Group = "Transform")]
             public double Rotation { get; set; }
 
             /// <summary>

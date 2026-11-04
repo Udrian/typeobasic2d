@@ -21,19 +21,19 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the texture associated with the object.
             /// </summary>
-            [TypeOProperty("Gets or sets the texture associated with the object.")]
+            [TypeOProperty("Gets or sets the texture associated with the object.", Group = "Rendering")]
             public Texture Texture { get; set; }
 
             /// <summary>
             /// Gets or sets the color associated with the object.
             /// </summary>
-            [TypeOProperty("Gets or sets the color associated with the object.", null)]
+            [TypeOProperty("Gets or sets the color associated with the object.", null, Group = "Rendering")]
             public Color Color { get; set; }
 
             /// <summary>
             /// Gets or sets the flipped state of the object.
             /// </summary>
-            [TypeOProperty("Gets or sets the flipped state of the object.")]
+            [TypeOProperty("Gets or sets the flipped state of the object.", Group = "Rendering")]
             public Flipped Flipped { get; set; }
 
             /// <summary>
@@ -48,7 +48,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets how the texture is rendered within the Size bounds.
             /// </summary>
-            [TypeOProperty("Gets or sets how the texture is rendered within the Size bounds.")]
+            [TypeOProperty("Gets or sets how the texture is rendered within the Size bounds.", Group = "Rendering")]
             public SizeMode SizeMode { get; set; }
 
             /// <summary>
