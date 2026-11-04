@@ -25,6 +25,25 @@ namespace TypeOBasic2dTest
         }
 
         [Fact]
+        public void Zoom_RoundTripsThroughCanvasWorldScale()
+        {
+            var typeO = Utility.CreateTypeO((context) =>
+            {
+                Utility.CreateTKWindow(context.TypeO);
+                var canvas = Utility.CreateTKCanvas(context);
+                var camera = ((TestGameMock)context.Game).Camera;
+                camera.SetCanvas(canvas);
+
+                Assert.Equal(1, camera.Zoom);
+                camera.Zoom = 2.5;
+
+                Assert.Equal(2.5, camera.Zoom);
+                Assert.Equal(2.5, canvas.WorldScale);
+            });
+            typeO.Start();
+        }
+
+        [Fact]
         public void SetCanvas_SwitchesTheCanvasTheCameraMoves()
         {
             var typeO = Utility.CreateTypeO((context) =>

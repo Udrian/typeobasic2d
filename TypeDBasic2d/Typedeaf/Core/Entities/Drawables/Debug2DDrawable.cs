@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -43,6 +43,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private static Debug2DDrawable PointerOwner;
         
         private List<Vec2> Lines { get; set; }
+        private double UnitsPerPixel { get; set; } = 1;
 
         /// <summary>
         /// Gets or sets a value indicating whether the outlined object is focused (selected).
@@ -113,26 +114,12 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     return new object();
                 });
 
+            // Gizmos keep the same size on screen at any zoom of the editor camera
+            UnitsPerPixel = canvas.WorldScale > 0 ? 1 / canvas.WorldScale : 1;
+
             var mousePos = MouseInputService.MousePosition;
-            Vec2 pos;
-            Vec2 size;
-            
-            // Use BoundingBox for Drawable2d objects to account for Position, Origin, Scale, and Rotation
-            if (TypeOObject is Drawable2d drawable)
-            {
-                var boundingBox = drawable.BoundingBox;
-                pos = boundingBox.Pos;
-                size = boundingBox.Size;
-                
-                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
-                pos = pos + parentPosition;
-            }
-            else
-            {
-                pos = GetPos();
-                size = Size;
-            }
-            
+            var (pos, size) = GetBounds();
+
             var isHovered = Contains(pos, size, mousePos);
             ProcessPointer(mousePos, pos, size, isHovered);
 
@@ -149,7 +136,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (EditorToolModel.ActiveTool == EditorTool.Move)
                 DrawMoveGizmo(canvas, pos, size);
             else if (EditorToolModel.ActiveTool == EditorTool.Resize)
-                DrawResizeHandles(canvas, pos, size);
+                DrawResizeHandles(canvas, pos, size, UnitsPerPixel);
             else if (EditorToolModel.ActiveTool == EditorTool.Origin)
                 DrawOriginGizmo(canvas, pos, size);
         }
@@ -185,15 +172,23 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// <returns><c>true</c> if the point is inside the area; otherwise <c>false</c>.</returns>
         public bool ContainsPoint(Vec2 point)
         {
+            var (pos, size) = GetBounds();
+            return Contains(pos, size, point);
+        }
+
+        /// <summary>
+        /// Gets the outlined area, which accounts for the position, origin, scale and rotation of drawables.
+        /// </summary>
+        /// <returns>The top-left position and the size of the area.</returns>
+        public (Vec2 Pos, Vec2 Size) GetBounds()
+        {
             if (TypeOObject is Drawable2d drawable)
             {
                 var boundingBox = drawable.BoundingBox;
-                var pos = boundingBox.Pos;
                 var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
-                pos = pos + parentPosition;
-                return Contains(pos, boundingBox.Size, point);
+                return (boundingBox.Pos + parentPosition, boundingBox.Size);
             }
-            return Contains(GetPos(), Size, point);
+            return (GetPos(), Size);
         }
 
         /// <summary>
@@ -204,23 +199,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (Lines == null)
                 return;
 
-            Vec2 pos;
-            Vec2 size;
-
-            if (TypeOObject is Drawable2d drawable)
-            {
-                var boundingBox = drawable.BoundingBox;
-                pos = boundingBox.Pos;
-                size = boundingBox.Size;
-                
-                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
-                pos = pos + parentPosition;
-            }
-            else
-            {
-                pos = GetPos();
-                size = Size;
-            }
+            var (pos, size) = GetBounds();
 
             Lines[0] = pos;
             Lines[1] = pos + new Vec2(size.X, 0);
@@ -262,14 +241,14 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (tool == EditorTool.Move && Focused)
             {
                 var center = boundsPos + (boundSize / 2);
-                var xEnd = center + new Vec2(GizmoLength, 0);
-                var yEnd = center + new Vec2(0, -GizmoLength);
-                isDraggingX = DistanceToSegment(mousePos, center, xEnd) <= HandleRadius;
-                isDraggingY = !isDraggingX && DistanceToSegment(mousePos, center, yEnd) <= HandleRadius;
+                var xEnd = center + new Vec2(GizmoLength * UnitsPerPixel, 0);
+                var yEnd = center + new Vec2(0, -GizmoLength * UnitsPerPixel);
+                isDraggingX = DistanceToSegment(mousePos, center, xEnd) <= HandleRadius * UnitsPerPixel;
+                isDraggingY = !isDraggingX && DistanceToSegment(mousePos, center, yEnd) <= HandleRadius * UnitsPerPixel;
             }
             else if (tool == EditorTool.Resize)
             {
-                TryGetResizeAxes(mousePos, boundsPos, boundSize, out resizeAxes);
+                TryGetResizeAxes(mousePos, boundsPos, boundSize, HandleRadius * UnitsPerPixel, out resizeAxes);
             }
             else if (tool == EditorTool.Origin && Focused && TypeOObject is Drawable2d)
             {
@@ -461,21 +440,22 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private void DrawMoveGizmo(ICanvas canvas, Vec2 pos, Vec2 size)
         {
             var center = pos + (size / 2);
-            DrawArrow(canvas, center, center + new Vec2(GizmoLength, 0), Color.Green);
-            DrawArrow(canvas, center, center + new Vec2(0, -GizmoLength), Color.Red);
+            var length = GizmoLength * UnitsPerPixel;
+            DrawArrow(canvas, center, center + new Vec2(length, 0), Color.Green, UnitsPerPixel);
+            DrawArrow(canvas, center, center + new Vec2(0, -length), Color.Red, UnitsPerPixel);
         }
 
-        private static void DrawArrow(ICanvas canvas, Vec2 start, Vec2 end, Color color)
+        private static void DrawArrow(ICanvas canvas, Vec2 start, Vec2 end, Color color, double unitsPerPixel)
         {
             canvas.DrawLineA(start, end, color);
             var direction = (end - start).Normalize();
             var perpendicular = new Vec2(-direction.Y, direction.X);
-            var arrowBase = end - direction * 9;
-            canvas.DrawLineA(end, arrowBase + perpendicular * 5, color);
-            canvas.DrawLineA(end, arrowBase - perpendicular * 5, color);
+            var arrowBase = end - direction * 9 * unitsPerPixel;
+            canvas.DrawLineA(end, arrowBase + perpendicular * 5 * unitsPerPixel, color);
+            canvas.DrawLineA(end, arrowBase - perpendicular * 5 * unitsPerPixel, color);
         }
 
-        private static void DrawResizeHandles(ICanvas canvas, Vec2 pos, Vec2 size)
+        private static void DrawResizeHandles(ICanvas canvas, Vec2 pos, Vec2 size, double unitsPerPixel)
         {
             var handles = new[]
             {
@@ -491,8 +471,9 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
             foreach (var handle in handles)
             {
-                var topLeft = handle - new Vec2(3, 3);
-                var bottomRight = handle + new Vec2(3, 3);
+                var halfSize = new Vec2(3 * unitsPerPixel, 3 * unitsPerPixel);
+                var topLeft = handle - halfSize;
+                var bottomRight = handle + halfSize;
                 canvas.DrawLineA(topLeft, new Vec2(bottomRight.X, topLeft.Y), Color.White);
                 canvas.DrawLineA(new Vec2(bottomRight.X, topLeft.Y), bottomRight, Color.White);
                 canvas.DrawLineA(bottomRight, new Vec2(topLeft.X, bottomRight.Y), Color.White);
@@ -510,11 +491,11 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             var originScreenPos = pos + (size * origin);
 
             // Draw a circle around the origin point
-            const double circleRadius = 12;
+            var circleRadius = 12 * UnitsPerPixel;
             DrawCircle(canvas, originScreenPos, circleRadius, Color.Yellow);
 
             // Draw a cross at the origin point
-            const double crossSize = 8;
+            var crossSize = 8 * UnitsPerPixel;
             canvas.DrawLineA(originScreenPos - new Vec2(crossSize, 0), originScreenPos + new Vec2(crossSize, 0), Color.Yellow);
             canvas.DrawLineA(originScreenPos - new Vec2(0, crossSize), originScreenPos + new Vec2(0, crossSize), Color.Yellow);
         }
@@ -535,22 +516,22 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
         }
 
-        private static bool TryGetResizeAxes(Vec2 mousePos, Vec2 pos, Vec2 size, out ResizeAxes axes)
+        private static bool TryGetResizeAxes(Vec2 mousePos, Vec2 pos, Vec2 size, double handleRadius, out ResizeAxes axes)
         {
             axes = ResizeAxes.None;
-            var left = Math.Abs(mousePos.X - pos.X) <= HandleRadius;
-            var right = Math.Abs(mousePos.X - (pos.X + size.X)) <= HandleRadius;
-            var top = Math.Abs(mousePos.Y - pos.Y) <= HandleRadius;
-            var bottom = Math.Abs(mousePos.Y - (pos.Y + size.Y)) <= HandleRadius;
+            var left = Math.Abs(mousePos.X - pos.X) <= handleRadius;
+            var right = Math.Abs(mousePos.X - (pos.X + size.X)) <= handleRadius;
+            var top = Math.Abs(mousePos.Y - pos.Y) <= handleRadius;
+            var bottom = Math.Abs(mousePos.Y - (pos.Y + size.Y)) <= handleRadius;
 
-            if (left && mousePos.Y >= pos.Y - HandleRadius && mousePos.Y <= pos.Y + size.Y + HandleRadius)
+            if (left && mousePos.Y >= pos.Y - handleRadius && mousePos.Y <= pos.Y + size.Y + handleRadius)
                 axes |= ResizeAxes.Left;
-            else if (right && mousePos.Y >= pos.Y - HandleRadius && mousePos.Y <= pos.Y + size.Y + HandleRadius)
+            else if (right && mousePos.Y >= pos.Y - handleRadius && mousePos.Y <= pos.Y + size.Y + handleRadius)
                 axes |= ResizeAxes.Right;
 
-            if (top && mousePos.X >= pos.X - HandleRadius && mousePos.X <= pos.X + size.X + HandleRadius)
+            if (top && mousePos.X >= pos.X - handleRadius && mousePos.X <= pos.X + size.X + handleRadius)
                 axes |= ResizeAxes.Top;
-            else if (bottom && mousePos.X >= pos.X - HandleRadius && mousePos.X <= pos.X + size.X + HandleRadius)
+            else if (bottom && mousePos.X >= pos.X - handleRadius && mousePos.X <= pos.X + size.X + handleRadius)
                 axes |= ResizeAxes.Bottom;
 
             return axes != ResizeAxes.None;

@@ -25,6 +25,11 @@ namespace TypeOEngine.Typedeaf.Basic2d
             public Vec2 Position { get { return new Vec2(Canvas.WorldTranslation.X, Canvas.WorldTranslation.Y); } set { Canvas.WorldTranslation = new Vec3(value.X, value.Y, 0); }  }
 
             /// <summary>
+            /// Gets or sets the zoom of the canvas, where 1 is unscaled and 2 draws the world twice as large.
+            /// </summary>
+            public double Zoom { get { return Canvas.WorldScale; } set { Canvas.WorldScale = value; } }
+
+            /// <summary>
             /// Sets the canvas to be used for drawing operations.
             /// </summary>
             /// <param name="canvas">The canvas instance to set. Cannot be <see langword="null"/>.</param>

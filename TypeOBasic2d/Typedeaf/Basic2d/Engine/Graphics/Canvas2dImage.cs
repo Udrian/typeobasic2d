@@ -1,4 +1,4 @@
-using OpenTK.Graphics.OpenGL4;
+﻿using OpenTK.Graphics.OpenGL4;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
@@ -35,14 +35,15 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         {
             if (canvas is TKCanvas tkCanvas && texture is TKTexture tkTexture)
             {
-                pos = (pos + anchor?.Position) ?? pos;
-                pos = (pos + origin) ?? pos;
+                // The clip area is in the same space as the position, so it gets the same offsets
+                var offset = (anchor?.Position ?? Vec2.Zero) + (origin ?? Vec2.Zero);
+                pos += offset;
 
                 // Enable scissor test if source clipping is specified
                 if (source.HasValue)
                 {
                     var sourceRect = source.Value;
-                    EnableScissorTest(tkCanvas, sourceRect);
+                    EnableScissorTest(tkCanvas, ToScreen(tkCanvas, new Rectangle(sourceRect.Pos + offset, sourceRect.Size)));
                 }
 
                 ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White);
@@ -69,27 +70,45 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         }
 
         /// <summary>
+        /// Converts a world rectangle to the screen with the canvas camera (world translation and scale), like the view matrix does.
+        /// </summary>
+        /// <param name="canvas">The canvas whose camera to apply</param>
+        /// <param name="worldRect">The rectangle in world coordinates</param>
+        /// <returns>The rectangle in screen coordinates</returns>
+        internal static Rectangle ToScreen(ICanvas canvas, Rectangle worldRect)
+        {
+            var scale = canvas.WorldScale;
+            var translation = new Vec2(canvas.WorldTranslation.X, canvas.WorldTranslation.Y);
+            return new Rectangle((worldRect.Pos - translation) * scale, worldRect.Size * scale);
+        }
+
+        /// <summary>
         /// Enables scissor test for clipping drawing to a specific rectangle.
         /// </summary>
         /// <param name="canvas">The canvas to apply scissor test on</param>
-        /// <param name="clipRect">The rectangle to clip drawing to</param>
+        /// <param name="clipRect">The rectangle to clip drawing to, in screen coordinates</param>
         private static void EnableScissorTest(TKCanvas canvas, Rectangle clipRect)
         {
-            // Convert from world coordinates to screen coordinates
-            // OpenGL scissor coordinates have origin at bottom-left, Y increases upward
-            int screenX = (int)clipRect.Pos.X;
-            int screenY = (int)(canvas.Viewport.Size.Y - clipRect.Pos.Y - clipRect.Size.Y);
-            int screenWidth = (int)clipRect.Size.X;
-            int screenHeight = (int)clipRect.Size.Y;
-
-            // Clamp values to viewport
-            screenX = System.Math.Max(0, screenX);
-            screenY = System.Math.Max(0, screenY);
-            screenWidth = System.Math.Min(screenWidth, (int)canvas.Viewport.Size.X - screenX);
-            screenHeight = System.Math.Min(screenHeight, (int)canvas.Viewport.Size.Y - screenY);
-
+            var (x, y, width, height) = ToScissor(canvas.Viewport.Size, clipRect);
             GL.Enable(EnableCap.ScissorTest);
-            GL.Scissor(screenX, screenY, screenWidth, screenHeight);
+            GL.Scissor(x, y, width, height);
+        }
+
+        /// <summary>
+        /// Converts a screen rectangle to an OpenGL scissor box, clamped to the viewport.
+        /// OpenGL scissor coordinates have origin at bottom-left, Y increases upward.
+        /// </summary>
+        internal static (int X, int Y, int Width, int Height) ToScissor(Vec2 viewportSize, Rectangle clipRect)
+        {
+            var left = System.Math.Max(0, System.Math.Floor(clipRect.Pos.X));
+            var top = System.Math.Max(0, System.Math.Floor(clipRect.Pos.Y));
+            var right = System.Math.Min(viewportSize.X, System.Math.Ceiling(clipRect.Pos.X + clipRect.Size.X));
+            var bottom = System.Math.Min(viewportSize.Y, System.Math.Ceiling(clipRect.Pos.Y + clipRect.Size.Y));
+
+            // A clip area outside the viewport hides everything rather than becoming a negative box
+            var width = (int)System.Math.Max(0, right - left);
+            var height = (int)System.Math.Max(0, bottom - top);
+            return ((int)left, (int)(viewportSize.Y - top - height), width, height);
         }
 
         /// <summary>

@@ -157,6 +157,12 @@ namespace TypeDBasic2d
                     var origin = targetDrawable.ScreenPosition;
                     hook.OriginX = origin.X;
                     hook.OriginY = origin.Y;
+                    var (pos, size) = targetDrawable.GetBounds();
+                    hook.TargetFound = true;
+                    hook.BoundsX = pos.X;
+                    hook.BoundsY = pos.Y;
+                    hook.BoundsWidth = size.X;
+                    hook.BoundsHeight = size.Y;
                 }
                 return;
             }
