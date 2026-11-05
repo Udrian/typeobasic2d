@@ -103,11 +103,15 @@ namespace TypeDBasic2d
                 or TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables.Drawable2d))
                 return;
 
-            if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
+            // Deferred removal runs after the component may have been detached or reparented.
+            var entry = DebugDrawablesMap.FirstOrDefault(pair => ReferenceEquals(pair.Value.TypeOObject, hook.TypeOObject));
+            if (entry.Value != null)
             {
-                var drawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
+                var drawable = entry.Value;
                 hook.Context.Game.Scenes.CurrentScene.Drawables.Destroy(drawable);
-                DebugDrawablesMap.Remove(hook.Component.FullParentPath + hook.Component.ID);
+                DebugDrawablesMap.Remove(entry.Key);
+                if (ReferenceEquals(CurrentFocusedDebug2DDrawable, drawable))
+                    CurrentFocusedDebug2DDrawable = null;
             }
         }
 
