@@ -24,14 +24,41 @@
     {
       "Name": "TypeOBasic2d",
       "type": "",
-      "depends_on": []
+      "depends_on": [],
+      "propertyGroup": {
+        "Nullable": "disable",
+        "GenerateDocumentationFile": "true"
+      },
+      "packageReferences": {},
+      "itemGroups": [
+        {
+          "items": [
+            {
+              "name": "InternalsVisibleTo",
+              "include": "TypeOBasic2dTest"
+            }
+          ]
+        }
+      ]
     },
     {
       "Name": "TypeDBasic2d",
       "type": "dev",
       "depends_on": [
         "TypeOBasic2d"
-      ]
+      ],
+      "propertyGroup": {
+        "Nullable": "disable",
+        "AvaloniaUseCompiledBindingsByDefault": "false",
+        "GenerateDocumentationFile": "true"
+      },
+      "packageReferences": {
+        "Avalonia.Diagnostics": {
+          "IncludeAssets": "None",
+          "PrivateAssets": "All",
+          "Condition": "'$(Configuration)' != 'Debug'"
+        }
+      }
     },
     {
       "Name": "TypeOBasic2dTest",
@@ -39,6 +66,27 @@
       "depends_on": [
         "TypeOBasic2d",
         "TypeDBasic2d"
+      ],
+      "propertyGroup": {
+        "IsPackable": "false"
+      },
+      "packageReferences": {
+        "coverlet.collector": {
+          "PrivateAssets": "all",
+          "IncludeAssets": "runtime; build; native; contentfiles; analyzers; buildtransitive"
+        },
+        "xunit.runner.visualstudio": {
+          "PrivateAssets": "all",
+          "IncludeAssets": "runtime; build; native; contentfiles; analyzers; buildtransitive"
+        },
+        "Avalonia.Diagnostics": {
+          "IncludeAssets": null,
+          "PrivateAssets": null,
+          "Condition": null
+        }
+      },
+      "usingStatements": [
+        "Xunit"
       ]
     }
   ]
