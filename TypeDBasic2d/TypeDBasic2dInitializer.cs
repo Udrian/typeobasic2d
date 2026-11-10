@@ -27,7 +27,8 @@ namespace TypeDBasic2d
         // Data
         Project Project { get; set; }
         Dictionary<string, Debug2DDrawable> DebugDrawablesMap { get; set; }
-        Debug2DDrawable CurrentFocusedDebug2DDrawable { get; set; }
+        SelectionController2DDrawable SelectionController { get; set; }
+        List<Component> SelectedComponents { get; set; } = new List<Component>();
 
         public override void Initializer(Project project)
         {
@@ -82,19 +83,28 @@ namespace TypeDBasic2d
                 or TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables.Drawable2d))
                 return;
 
+            // The controller owns all pointer interaction of the overlays, one per loaded view
+            if (SelectionController == null)
+            {
+                SelectionController = hook.Context.Game.Scenes.CurrentScene.Drawables.Create<SelectionController2DDrawable>();
+                SelectionController.Project = Project;
+                SelectionController.HookModel = HookModel;
+                SelectionController.EditorToolModel = EditorToolModel;
+                SelectionController.EditorCommandRegistry = EditorCommandRegistry;
+                SelectionController.GetDebugDrawables = () => DebugDrawablesMap.Values.ToList();
+            }
+
             Vec2 position = hook.Component.Properties.FirstOrDefault(p => p.Name == "Position")?.ToValue<Vec2>() ?? Vec2.Zero;
             Vec2 size = hook.Component.Properties.FirstOrDefault(p => p.Name == "Size")?.ToValue<Vec2>() ?? Vec2.Zero;
             var drawable = hook.Context.Game.Scenes.CurrentScene.Drawables.Create<Debug2DDrawable>();
             drawable.TypeOObject = hook.TypeOObject;
             drawable.Component = hook.Component;
-            drawable.Project = Project;
-            drawable.HookModel = HookModel;
             drawable.EditorToolModel = EditorToolModel;
-            drawable.EditorCommandRegistry = EditorCommandRegistry;
             drawable.Position = position;
             drawable.Size = size;
             drawable.UpdateLines();
             DebugDrawablesMap.Add(hook.Component.FullParentPath + hook.Component.ID, drawable);
+            UpdateSelectionRoles();
         }
 
         internal void RemoveDebugDrawableComponent(TypeOObjectRemovedFromViewHook hook)
@@ -110,8 +120,6 @@ namespace TypeDBasic2d
                 var drawable = entry.Value;
                 hook.Context.Game.Scenes.CurrentScene.Drawables.Destroy(drawable);
                 DebugDrawablesMap.Remove(entry.Key);
-                if (ReferenceEquals(CurrentFocusedDebug2DDrawable, drawable))
-                    CurrentFocusedDebug2DDrawable = null;
             }
         }
 
@@ -130,7 +138,7 @@ namespace TypeDBasic2d
         private void ClearDebugDrawablesMap()
         {
             DebugDrawablesMap.Clear();
-            CurrentFocusedDebug2DDrawable = null;
+            SelectionController = null;
         }
 
         internal void ComponentPropertyChanged(PropertyChangedHook hook)
@@ -178,12 +186,8 @@ namespace TypeDBasic2d
             Component hit = null;
             try
             {
-                // Drawables are added parent first, so the last match is the innermost node.
-                foreach (var drawable in DebugDrawablesMap.Values.ToList())
-                {
-                    if (drawable.Component != null && drawable.ContainsPoint(point))
-                        hit = drawable.Component;
-                }
+                // The hit with the highest draw order wins; entities without one fall back to the hierarchy
+                hit = SelectionController2DDrawable.PickTopMost(DebugDrawablesMap.Values.ToList(), point)?.Component;
             }
             catch (System.InvalidOperationException)
             {
@@ -194,16 +198,30 @@ namespace TypeDBasic2d
 
         internal void ComponentFocusChanged(ComponentFocusHook hook)
         {
-            if (CurrentFocusedDebug2DDrawable != null)
+            SelectedComponents = hook.Selection != null && hook.Selection.Contains(hook.Component)
+                ? hook.Selection.ToList()
+                : new List<Component> { hook.Component };
+            UpdateSelectionRoles();
+        }
+
+        private void UpdateSelectionRoles()
+        {
+            foreach (var drawable in DebugDrawablesMap.Values)
             {
-                CurrentFocusedDebug2DDrawable.Focused = false;
-                CurrentFocusedDebug2DDrawable = null;
+                drawable.Focused = SelectedComponents.Any(c => ReferenceEquals(c, drawable.Component));
+                drawable.IsParentOfSelected = !drawable.Focused && SelectedComponents.Any(c => IsAncestorOf(drawable.Component, c));
+                drawable.IsChildOfSelected = !drawable.Focused && SelectedComponents.Any(c => IsAncestorOf(c, drawable.Component));
             }
-            if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
+        }
+
+        private static bool IsAncestorOf(Component ancestor, Component node)
+        {
+            for (var parent = node?.ParentComponent; parent != null; parent = parent.ParentComponent)
             {
-                CurrentFocusedDebug2DDrawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
-                CurrentFocusedDebug2DDrawable.Focused = true;
+                if (ReferenceEquals(parent, ancestor))
+                    return true;
             }
+            return false;
         }
     }
 }
