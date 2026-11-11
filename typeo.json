@@ -1,12 +1,13 @@
 {
   "name": "TypeOBasic2d",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "externals": [
     "Mock/Resources/Lato-Black.ttf;test",
     "Mock/Resources/texture.png;test"
   ],
   "dependencies": [
-    "Udrian@TypeOCore-1.0.0",
+    "Udrian@TypeOCore-1.1.0",
+    "Udrian@TypeODesktop-1.1.0;dev",
     "Udrian@TypeOTK-1.0.0",
     "Udrian@TypeD-1.0.0;dev",
     "Avalonia-12.1.4;nuget;dev",

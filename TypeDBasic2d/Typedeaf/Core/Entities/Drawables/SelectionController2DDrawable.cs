@@ -98,6 +98,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         protected override void Initialize()
         {
             DrawOrder = int.MaxValue;
+            MouseInputService.SetKeyAlias(MouseButton.Left, MouseButton.Left);
+            MouseInputService.SetKeyAlias(MouseButton.Right, MouseButton.Right);
         }
 
         /// <summary>
@@ -106,6 +108,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         protected override void Cleanup()
         {
             ReleasePointer();
+            MouseInputService.RemoveKeyAlias(MouseButton.Left);
+            MouseInputService.RemoveKeyAlias(MouseButton.Right);
         }
 
         /// <summary>
@@ -119,8 +123,6 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
             if (!AliasesSet)
             {
-                MouseInputService.SetKeyAlias(MouseButton.Left, MouseButton.Left);
-                MouseInputService.SetKeyAlias(MouseButton.Right, MouseButton.Right);
                 AliasesSet = true;
             }
 
