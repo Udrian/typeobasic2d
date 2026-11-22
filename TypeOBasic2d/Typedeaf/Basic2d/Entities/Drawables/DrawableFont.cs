@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
+using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
@@ -22,6 +22,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// </summary>
             /// <remarks>Changing the font triggers an update to recalculate the size and layout of
             /// the text.</remarks>
+            [TypeOProperty("Gets or sets the font used for rendering text.", Group = "Rendering")]
             public Font Font {
                 get { return _font; }
                 set {
@@ -38,6 +39,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the text content.
             /// </summary>
+            [TypeOProperty("Gets or sets the text content.", Group = "Rendering")]
             public string Text {
                 get { return _text; }
                 set {
@@ -52,6 +54,29 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             private string _text;
 
             /// <summary>
+            /// Gets or sets the font size.
+            /// </summary>
+            [TypeOProperty("Gets or sets the font size.", Group = "Rendering")]
+            public int FontSize
+            {
+                get { return _fontSize; }
+                set
+                {
+                    var update = _fontSize != value;
+                    _fontSize = value;
+                    if(update)
+                    {
+                        if(Font != null)
+                        {
+                            Font.FontSize = FontSize;
+                        }
+                        UpdateSizeAndLines();
+                    }
+                }
+            }
+            private int _fontSize;
+
+            /// <summary>
             /// Gets the collection of lines associated with this instance.
             /// </summary>
             public List<string> Lines { get; protected set; }
@@ -59,11 +84,13 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// <summary>
             /// Gets or sets the color associated with the object.
             /// </summary>
+            [TypeOProperty("Gets or sets the color associated with the object.", null, Group = "Rendering")]
             public Color Color { get; set; }
 
             /// <summary>
             /// Gets or sets the flipped state of the object.
             /// </summary>
+            [TypeOProperty("Gets or sets the flipped state of the object.", Group = "Rendering")]
             public Flipped Flipped { get; set; }
 
             private void UpdateSizeAndLines()
@@ -139,7 +166,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 var actualSize = Size * Scale;
                 var originOffset = actualSize * Origin;
                 var position = new Vec2(Position.X, Position.Y) - originOffset;
-                
+
                 var ySize = Font.MeasureString(Text).Y;
                 foreach (var line in Lines)
                 {

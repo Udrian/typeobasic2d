@@ -42,7 +42,9 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                     EnableScissorTest(tkCanvas, sourceRect);
                 }
 
-                tkFont.Draw(text, new Vec2(pos.X, tkCanvas.Viewport.Size.Y - pos.Y), color ?? Color.White, flipped);
+                var worldPos = new Vec2(pos.X - tkCanvas.WorldTranslation.X, pos.Y - tkCanvas.WorldTranslation.Y) * tkCanvas.WorldScale;
+
+                tkFont.Draw(text, new Vec2(worldPos.X, tkCanvas.Viewport.Size.Y - worldPos.Y), (scale??Vec2.One) * tkCanvas.WorldScale, color ?? Color.White, flipped);
 
                 // Disable scissor test after drawing
                 if (source.HasValue)

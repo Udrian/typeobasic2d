@@ -1,6 +1,5 @@
 using TypeD.Models.Data;
 using TypeDCore.Components;
-using TypeOEngine.Typedeaf.Core.Entities.Drawables;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 
 namespace TypeDBasic2d.Components

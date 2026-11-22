@@ -1,13 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using TypeD;
+﻿using TypeD;
 using TypeD.Models.Data;
 using TypeD.Models.Data.Hooks;
 using TypeD.Models.Interfaces;
 using TypeD.Models.Providers.Interfaces;
 using TypeDBasic2d.Components;
 using TypeDBasic2d.Typedeaf.Core.Entities.Drawables;
-using TypeDCore.Commands.Data;
 using TypeDCore.Models.Data.Hooks;
 using TypeDCore.Models.Interfaces;
 using TypeOEngine.Typedeaf.Core.Common;
@@ -23,6 +20,7 @@ namespace TypeDBasic2d
         IHookModel HookModel { get; set; }
         IEditorToolModel EditorToolModel { get; set; }
         IEditorCommandRegistry EditorCommandRegistry { get; set; }
+        IIconModel IconModel { get; set; }
 
         // Data
         Project Project { get; set; }
@@ -41,6 +39,7 @@ namespace TypeDBasic2d
             HookModel = Resources.Get<IHookModel>();
             EditorToolModel = Resources.Get<IEditorToolModel>();
             EditorCommandRegistry = Resources.Get<IEditorCommandRegistry>();
+            IconModel = Resources.Get<IIconModel>();
 
             // Data
             DebugDrawablesMap = new Dictionary<string, Debug2DDrawable>();
@@ -48,6 +47,7 @@ namespace TypeDBasic2d
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Entity2dComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableTextureComponent());
+            ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableFontComponent());
 
             // Hooks
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
@@ -57,6 +57,9 @@ namespace TypeDBasic2d
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
             HookModel.AddHook<ViewerHitTestHook>(ViewerHitTest);
+
+            // Content
+            IconModel.AddDefaultIconsPath(Path.Combine(project.Location, "Assets", "Icons"));
         }
 
         public override void Uninitializer()
@@ -65,6 +68,7 @@ namespace TypeDBasic2d
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.Entity2dComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableTextureComponent());
+            ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableFontComponent());
 
             // Hooks
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
