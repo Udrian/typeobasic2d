@@ -131,11 +131,26 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 }
             }
 
+            internal (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetLocalCorners()
+            {
+                var scaledSize = Size * Scale;
+                var originOffset = scaledSize * Origin;
+                var modelMatrix =
+                    Matrix4.CreateTranslation((float)-originOffset.X, (float)-originOffset.Y, 0) *
+                    Matrix4.CreateRotationZ(MathHelper.DegreesToRadians((float)Rotation)) *
+                    Matrix4.CreateTranslation((float)Position.X, (float)Position.Y, 0);
+                return (
+                    Entity2d.TransformPoint(Vec2.Zero, modelMatrix),
+                    Entity2d.TransformPoint(new Vec2(scaledSize.X, 0), modelMatrix),
+                    Entity2d.TransformPoint(scaledSize, modelMatrix),
+                    Entity2d.TransformPoint(new Vec2(0, scaledSize.Y), modelMatrix));
+            }
+
             /// <summary>
             /// Gets the world-space position of the drawable's origin pivot.
             /// </summary>
             public Vec2 WorldPosition => Parent is Entity2d parent
-                ? Entity2d.TransformPoint(Position, parent.ModelMatrix)
+                ? Entity2d.TransformPoint(Position, parent.ChildrenModelMatrix)
                 : Position;
 
             /// <summary>
@@ -143,9 +158,12 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// </summary>
             public Vec2 WorldDeltaToLocal(Vec2 worldDelta)
             {
-                return Parent is Entity2d parent
-                    ? parent.WorldDeltaToLocal(worldDelta)
-                    : worldDelta;
+                if (Parent is not Entity2d parent)
+                    return worldDelta;
+
+                var matrix = parent.ChildrenModelMatrix;
+                return Entity2d.InverseTransformPoint(worldDelta, matrix)
+                    - Entity2d.InverseTransformPoint(Vec2.Zero, matrix);
             }
 
             /// <summary>
@@ -168,7 +186,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     Matrix4.CreateRotationZ(MathHelper.DegreesToRadians((float)Rotation)) *
                     Matrix4.CreateTranslation((float)Position.X, (float)Position.Y, 0);
                 if (Parent is Entity2d parent)
-                    modelMatrix *= parent.ModelMatrix;
+                    modelMatrix *= parent.ChildrenModelMatrix;
                 return modelMatrix;
             }
 

@@ -94,9 +94,9 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public Flipped Flipped { get; set; }
 
             /// <summary>
-            /// Gets or sets how the text is rendered within its size bounds.
+            /// Gets or sets how the text is rendered within its size bounds. Auto uses the text's natural size.
             /// </summary>
-            [TypeOProperty("Gets or sets how the text is rendered within its size bounds.", Group = "Rendering")]
+            [TypeOProperty("Gets or sets how the text is rendered within its size bounds. Auto uses the text's natural size.", Group = "Rendering")]
             public SizeMode SizeMode { get; set; }
 
             private Vec2 TextSize { get; set; }

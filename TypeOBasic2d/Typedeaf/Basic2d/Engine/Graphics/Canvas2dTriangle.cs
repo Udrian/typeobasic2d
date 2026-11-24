@@ -63,11 +63,14 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             }
 
             pos += GetAnchorOffset(anchor);
-            ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin, anchor);
-            if (filled)
-                TriangleFillPrimitive.Draw();
-            else
-                TriangleOutlinePrimitive.Draw();
+            DrawWithEntityClipping(canvas, anchor, () =>
+            {
+                ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin, anchor);
+                if (filled)
+                    TriangleFillPrimitive.Draw();
+                else
+                    TriangleOutlinePrimitive.Draw();
+            });
         }
     }
 }

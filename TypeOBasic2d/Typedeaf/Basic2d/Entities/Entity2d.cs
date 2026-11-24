@@ -2,6 +2,7 @@ using OpenTK.Mathematics;
 using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Entities;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Interfaces;
 
 namespace TypeOEngine.Typedeaf.TypeOBasic2d
@@ -18,7 +19,9 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             private double _rotation;
             private Vec2 _size;
             private Vec2 _origin;
+            private SizeMode _sizeMode = SizeMode.Auto;
             private Matrix4 _modelMatrix = Matrix4.Identity;
+            private Matrix4 _childrenModelMatrix = Matrix4.Identity;
             private Entity2d _cachedParent;
             private Vec2 _cachedPosition;
             private Vec2 _cachedScale;
@@ -26,8 +29,15 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             private Vec2 _cachedSize;
             private Vec2 _cachedOrigin;
             private int _modelMatrixVersion;
-            private int _cachedParentModelMatrixVersion = -1;
+            private int _childrenModelMatrixVersion;
+            private int _cachedParentChildrenModelMatrixVersion = -1;
+            private int _cachedModelMatrixVersion = -1;
+            private Vec2 _cachedChildrenSize;
+            private Vec2 _cachedChildrenBoundsPosition;
+            private Vec2 _cachedChildrenBoundsSize;
+            private SizeMode _cachedChildrenSizeMode;
             private bool _hasModelMatrix;
+            private bool _hasChildrenModelMatrix;
 
             /// <summary>
             /// Gets or sets the position represented by a two-dimensional vector.
@@ -72,16 +82,30 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 }
             }
             /// <summary>
-            /// Gets or sets the two-dimensional size of the object.
+            /// Gets or sets the two-dimensional size of the object. In Auto mode, the getter returns the bounds of its children.
             /// </summary>
-            [TypeOProperty("Gets or sets the two-dimensional size of the object.", Group = "Transform")]
+            [TypeOProperty("Gets or sets the two-dimensional size of the object. In Auto mode, the getter returns the bounds of its children.", Group = "Transform")]
             public virtual Vec2 Size
             {
-                get => _size;
+                get => SizeMode == SizeMode.Auto ? GetChildrenBounds().Size : _size;
                 set
                 {
                     if (_size == value) return;
                     _size = value;
+                    InvalidateModelMatrix();
+                }
+            }
+            /// <summary>
+            /// Gets or sets how this entity sizes and constrains its children.
+            /// </summary>
+            [TypeOProperty("Gets or sets how this entity sizes and constrains its children.", SizeMode.Auto, Group = "Transform")]
+            public SizeMode SizeMode
+            {
+                get => _sizeMode;
+                set
+                {
+                    if (_sizeMode == value) return;
+                    _sizeMode = value;
                     InvalidateModelMatrix();
                 }
             }
@@ -108,17 +132,16 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 get
                 {
                     var parent = Parent as Entity2d;
-                    var parentModelMatrix = parent?.ModelMatrix ?? Matrix4.Identity;
-                    var parentVersion = parent?._modelMatrixVersion ?? 0;
+                    var parentModelMatrix = parent?.ChildrenModelMatrix ?? Matrix4.Identity;
+                    var parentVersion = parent?._childrenModelMatrixVersion ?? 0;
                     var position = Position;
                     var scale = Scale;
                     var rotation = Rotation;
                     var size = Size;
                     var origin = Origin;
-
                     if (_hasModelMatrix
                         && ReferenceEquals(_cachedParent, parent)
-                        && _cachedParentModelMatrixVersion == parentVersion
+                        && _cachedParentChildrenModelMatrixVersion == parentVersion
                         && _cachedPosition == position
                         && _cachedScale == scale
                         && _cachedRotation.Equals(rotation)
@@ -137,7 +160,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
                     _modelMatrix = localMatrix * parentModelMatrix;
                     _cachedParent = parent;
-                    _cachedParentModelMatrixVersion = parentVersion;
+                    _cachedParentChildrenModelMatrixVersion = parentVersion;
                     _cachedPosition = position;
                     _cachedScale = scale;
                     _cachedRotation = rotation;
@@ -150,9 +173,60 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             }
 
             /// <summary>
+            /// Gets the matrix that maps this entity's child coordinate space into world coordinates.
+            /// </summary>
+            public Matrix4 ChildrenModelMatrix
+            {
+                get
+                {
+                    var modelMatrix = ModelMatrix;
+                    var contentBounds = SizeMode == SizeMode.Stretch
+                        ? GetChildrenBounds()
+                        : new Rectangle(Vec2.Zero, Vec2.Zero);
+                    var size = Size;
+                    if (_hasChildrenModelMatrix
+                        && _cachedModelMatrixVersion == _modelMatrixVersion
+                        && _cachedChildrenSize == size
+                        && _cachedChildrenBoundsPosition == contentBounds.Pos
+                        && _cachedChildrenBoundsSize == contentBounds.Size
+                        && _cachedChildrenSizeMode == SizeMode)
+                    {
+                        return _childrenModelMatrix;
+                    }
+
+                    var contentMatrix = Matrix4.Identity;
+                    if (SizeMode == SizeMode.Stretch && contentBounds.Size != Vec2.Zero)
+                    {
+                        var scale = new Vec2(
+                            contentBounds.Size.X == 0 ? 1 : size.X / contentBounds.Size.X,
+                            contentBounds.Size.Y == 0 ? 1 : size.Y / contentBounds.Size.Y);
+                        contentMatrix =
+                            Matrix4.CreateTranslation((float)-contentBounds.Pos.X, (float)-contentBounds.Pos.Y, 0) *
+                            Matrix4.CreateScale((float)scale.X, (float)scale.Y, 1);
+                    }
+
+                    _childrenModelMatrix = contentMatrix * modelMatrix;
+                    _cachedModelMatrixVersion = _modelMatrixVersion;
+                    _cachedChildrenSize = size;
+                    _cachedChildrenBoundsPosition = contentBounds.Pos;
+                    _cachedChildrenBoundsSize = contentBounds.Size;
+                    _cachedChildrenSizeMode = SizeMode;
+                    _hasChildrenModelMatrix = true;
+                    _childrenModelMatrixVersion++;
+                    return _childrenModelMatrix;
+                }
+            }
+
+            /// <summary>
             /// Gets the world-space position of this entity's origin pivot.
             /// </summary>
-            public Vec2 WorldPosition => TransformPoint(Size * Origin, ModelMatrix);
+            public Vec2 WorldPosition
+            {
+                get
+                {
+                    return TransformPoint(Size * Origin, ModelMatrix);
+                }
+            }
 
             /// <summary>
             /// Gets the entity's transformed world-space corners in clockwise order.
@@ -161,13 +235,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             {
                 get
                 {
-                    var size = Size;
-                    var matrix = ModelMatrix;
-                    return (
-                        TransformPoint(Vec2.Zero, matrix),
-                        TransformPoint(new Vec2(size.X, 0), matrix),
-                        TransformPoint(size, matrix),
-                        TransformPoint(new Vec2(0, size.Y), matrix));
+                    return GetBoundsCorners(ModelMatrix);
                 }
             }
 
@@ -183,6 +251,83 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             private void InvalidateModelMatrix()
             {
                 _hasModelMatrix = false;
+                _hasChildrenModelMatrix = false;
+            }
+
+            private Rectangle GetChildrenBounds()
+            {
+                var hasBounds = false;
+                var minX = double.MaxValue;
+                var minY = double.MaxValue;
+                var maxX = double.MinValue;
+                var maxY = double.MinValue;
+
+                void Include((Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) corners)
+                {
+                    minX = Math.Min(minX, Math.Min(Math.Min(corners.TopLeft.X, corners.TopRight.X), Math.Min(corners.BottomRight.X, corners.BottomLeft.X)));
+                    minY = Math.Min(minY, Math.Min(Math.Min(corners.TopLeft.Y, corners.TopRight.Y), Math.Min(corners.BottomRight.Y, corners.BottomLeft.Y)));
+                    maxX = Math.Max(maxX, Math.Max(Math.Max(corners.TopLeft.X, corners.TopRight.X), Math.Max(corners.BottomRight.X, corners.BottomLeft.X)));
+                    maxY = Math.Max(maxY, Math.Max(Math.Max(corners.TopLeft.Y, corners.TopRight.Y), Math.Max(corners.BottomRight.Y, corners.BottomLeft.Y)));
+                    hasBounds = true;
+                }
+
+                if (Entities != null)
+                {
+                    foreach (var child in Entities.ListAll().OfType<Entity2d>())
+                        Include(child.GetLocalCorners());
+                }
+
+                if (Drawables != null)
+                {
+                    foreach (var drawable in Drawables.Get<Drawable2d>())
+                        Include(drawable.GetLocalCorners());
+                }
+
+                return hasBounds
+                    ? new Rectangle(new Vec2(minX, minY), new Vec2(maxX - minX, maxY - minY))
+                    : new Rectangle(Vec2.Zero, Vec2.Zero);
+            }
+
+            internal (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetLocalCorners()
+            {
+                var size = Size;
+                var bounds = SizeMode == SizeMode.Auto
+                    ? GetChildrenBounds()
+                    : new Rectangle(Vec2.Zero, size);
+                var matrix = CreateLocalModelMatrix(
+                    Position,
+                    Scale,
+                    Rotation,
+                    size,
+                    Origin);
+                return (
+                    TransformPoint(bounds.Pos, matrix),
+                    TransformPoint(new Vec2(bounds.Pos.X + bounds.Size.X, bounds.Pos.Y), matrix),
+                    TransformPoint(bounds.Pos + bounds.Size, matrix),
+                    TransformPoint(new Vec2(bounds.Pos.X, bounds.Pos.Y + bounds.Size.Y), matrix));
+            }
+
+            private (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetBoundsCorners(Matrix4 matrix)
+            {
+                var size = Size;
+                var bounds = SizeMode == SizeMode.Auto
+                    ? GetChildrenBounds()
+                    : new Rectangle(Vec2.Zero, size);
+                return (
+                    TransformPoint(bounds.Pos, matrix),
+                    TransformPoint(new Vec2(bounds.Pos.X + bounds.Size.X, bounds.Pos.Y), matrix),
+                    TransformPoint(bounds.Pos + bounds.Size, matrix),
+                    TransformPoint(new Vec2(bounds.Pos.X, bounds.Pos.Y + bounds.Size.Y), matrix));
+            }
+
+            internal static Matrix4 CreateLocalModelMatrix(Vec2 position, Vec2 scale, double rotation, Vec2 size, Vec2 origin)
+            {
+                var pivot = size * origin;
+                return
+                    Matrix4.CreateTranslation((float)-pivot.X, (float)-pivot.Y, 0) *
+                    Matrix4.CreateScale((float)scale.X, (float)scale.Y, 1) *
+                    Matrix4.CreateRotationZ(MathHelper.DegreesToRadians((float)rotation)) *
+                    Matrix4.CreateTranslation((float)position.X, (float)position.Y, 0);
             }
 
             internal static Vec2 TransformPoint(Vec2 point, Matrix4 matrix)
@@ -224,12 +369,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             /// Setting this property updates the entity's local position and size.</remarks>
             public Rectangle ScreenBounds {
                 get {
-                    var size = Size;
-                    var matrix = ModelMatrix;
-                    var topLeft = TransformPoint(Vec2.Zero, matrix);
-                    var topRight = TransformPoint(new Vec2(size.X, 0), matrix);
-                    var bottomRight = TransformPoint(size, matrix);
-                    var bottomLeft = TransformPoint(new Vec2(0, size.Y), matrix);
+                    var (topLeft, topRight, bottomRight, bottomLeft) = GetBoundsCorners(ModelMatrix);
                     var minX = Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomRight.X, bottomLeft.X));
                     var minY = Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomRight.Y, bottomLeft.Y));
                     var maxX = Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomRight.X, bottomLeft.X));
@@ -237,11 +377,13 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     return new Rectangle(new Vec2(minX, minY), new Vec2(maxX - minX, maxY - minY));
                 }
                 set {
+                    if (SizeMode == SizeMode.Auto)
+                        SizeMode = SizeMode.None;
                     Size = value.Size;
                     var parent = Parent as Entity2d;
                     var localPosition = parent == null
                         ? value.Pos
-                        : InverseTransformPoint(value.Pos, parent.ModelMatrix);
+                        : InverseTransformPoint(value.Pos, parent.ChildrenModelMatrix);
                     Position = localPosition + Size * Origin;
                 }
             }

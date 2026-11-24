@@ -27,10 +27,12 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             if (canvas is TKCanvas tkCanvas)
             {
                 var pos = point + GetAnchorOffset(anchor);
-                PixelPrimitive.Vertices[0].Position = new Vec3(pos);
-                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
-
-                PixelPrimitive.Draw();
+                DrawWithEntityClipping(canvas, anchor, () =>
+                {
+                    PixelPrimitive.Vertices[0].Position = new Vec3(pos);
+                    ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
+                    PixelPrimitive.Draw();
+                });
             }
         }
 
@@ -58,9 +60,11 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                     pixelPrimitive.Vertices[i].Position = new Vec3(pos);
                     i++;
                 }
-                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
-
-                pixelPrimitive.Draw();
+                DrawWithEntityClipping(canvas, anchor, () =>
+                {
+                    ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
+                    pixelPrimitive.Draw();
+                });
             }
         }
     }

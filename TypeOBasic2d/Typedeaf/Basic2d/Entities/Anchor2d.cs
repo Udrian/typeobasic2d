@@ -79,12 +79,12 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                         default:
                             break;
                     }
-                    return new Rectangle(Parent == null ? pos : Entity2d.TransformPoint(pos, Parent.ModelMatrix), Vec2.Zero);
+                    return new Rectangle(Parent == null ? pos : Entity2d.TransformPoint(pos, Parent.ChildrenModelMatrix), Vec2.Zero);
                 }
                 set {
                     Position = Parent == null
                         ? value.Pos
-                        : Entity2d.InverseTransformPoint(value.Pos, Parent.ModelMatrix);
+                        : Entity2d.InverseTransformPoint(value.Pos, Parent.ChildrenModelMatrix);
                 }
             }
         }

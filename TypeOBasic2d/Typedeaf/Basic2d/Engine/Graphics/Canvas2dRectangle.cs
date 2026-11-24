@@ -58,11 +58,13 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             if (canvas is TKCanvas tkCanvas)
             {
                 pos += GetAnchorOffset(anchor);
-                ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin, anchor);
-
-                RectanglePrimitive.PrimitiveDrawType = filled ? PrimitiveDrawType.Triangle : PrimitiveDrawType.Line;
-                RectanglePrimitive.Size = size;
-                RectanglePrimitive.Draw();
+                DrawWithEntityClipping(canvas, anchor, () =>
+                {
+                    ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin, anchor);
+                    RectanglePrimitive.PrimitiveDrawType = filled ? PrimitiveDrawType.Triangle : PrimitiveDrawType.Line;
+                    RectanglePrimitive.Size = size;
+                    RectanglePrimitive.Draw();
+                });
             }
         }
 

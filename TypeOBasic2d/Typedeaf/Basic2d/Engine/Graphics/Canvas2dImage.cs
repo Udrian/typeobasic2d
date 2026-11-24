@@ -45,16 +45,20 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 if (source.HasValue && !ApplySourceClip(TexturedPrimitive, imagePosition, imageSize, source.Value))
                     return;
 
-                ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White, origin, anchor);
-                tkTexture.Use();
-                
-                // Apply flipping by modifying texture coordinates
                 ApplyFlipping(TexturedPrimitive, flipped);
-                
-                TexturedPrimitive.Draw();
-                
-                // Reset texture coordinates to default state for next draw
-                ResetFlipping(TexturedPrimitive);
+                try
+                {
+                    DrawWithEntityClipping(canvas, anchor, () =>
+                    {
+                        ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White, origin, anchor);
+                        tkTexture.Use();
+                        TexturedPrimitive.Draw();
+                    });
+                }
+                finally
+                {
+                    ResetFlipping(TexturedPrimitive);
+                }
             }
         }
 

@@ -54,11 +54,14 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             }
 
             var position = center + GetAnchorOffset(anchor);
-            ActivateShader(tkCanvas.Shader, tkCanvas, position, 0, color, anchor: anchor);
-            if (filled)
-                CircleFillPrimitive.Draw();
-            else
-                CircleOutlinePrimitive.Draw();
+            DrawWithEntityClipping(canvas, anchor, () =>
+            {
+                ActivateShader(tkCanvas.Shader, tkCanvas, position, 0, color, anchor: anchor);
+                if (filled)
+                    CircleFillPrimitive.Draw();
+                else
+                    CircleOutlinePrimitive.Draw();
+            });
         }
     }
 }

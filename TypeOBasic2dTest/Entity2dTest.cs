@@ -4,6 +4,7 @@ using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.Basic2d.Engine;
+using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Interfaces;
@@ -61,6 +62,12 @@ namespace TypeOBasic2dTest
             return ((BoxGame)typeO.Context.Game).Scene;
         }
 
+        private static void SetSize(Entity2d entity, Vec2 size)
+        {
+            entity.SizeMode = SizeMode.None;
+            entity.Size = size;
+        }
+
         [Fact]
         public void NewEntity_HasNeutralTransform()
         {
@@ -71,6 +78,127 @@ namespace TypeOBasic2dTest
             Assert.Equal(0, box.Rotation);
             Assert.Equal(Vec2.Zero, box.Size);
             Assert.Equal(Vec2.Zero, box.Origin);
+            Assert.Equal(SizeMode.Auto, box.SizeMode);
+        }
+
+        [Fact]
+        public void AutoSize_UsesChildBoundsAndUpdatesAfterChildrenChange()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            var first = parent.Drawables.Create<BoxDrawable>();
+            first.Position = new Vec2(10, 20);
+            first.Size = new Vec2(30, 40);
+
+            Assert.Equal(new Vec2(30, 40), parent.Size);
+            Assert.Equal(new Rectangle(new Vec2(10, 20), new Vec2(30, 40)), parent.ScreenBounds);
+
+            var second = parent.Drawables.Create<BoxDrawable>();
+            second.Position = new Vec2(-5, 8);
+            second.Size = new Vec2(12, 50);
+
+            Assert.Equal(new Vec2(45, 52), parent.Size);
+            second.Size = new Vec2(12, 60);
+            Assert.Equal(new Vec2(45, 60), parent.Size);
+        }
+
+        [Fact]
+        public void AutoSize_IncludesNestedEntityBounds()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            var child = parent.CreateChild();
+            child.Position = new Vec2(10, 15);
+            var drawable = child.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(2, 3);
+            drawable.Size = new Vec2(20, 30);
+            parent.Entities.Update(0);
+
+            Assert.Single(parent.Entities.ListAll());
+            Assert.Equal(20, parent.Size.X, 5);
+            Assert.Equal(30, parent.Size.Y, 5);
+        }
+
+        [Fact]
+        public void StretchMode_FitsChildBoundsToEntitySize()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.SizeMode = SizeMode.Stretch;
+            parent.Size = new Vec2(100, 50);
+            var drawable = parent.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(10, 20);
+            drawable.Size = new Vec2(20, 10);
+
+            Assert.Equal(new Rectangle(Vec2.Zero, new Vec2(100, 50)), drawable.WorldBounds);
+        }
+
+        [Fact]
+        public void StretchMode_ConvertsWorldDeltaToStretchedChildSpace()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.SizeMode = SizeMode.Stretch;
+            parent.Size = new Vec2(100, 50);
+            var drawable = parent.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(10, 20);
+            drawable.Size = new Vec2(20, 10);
+
+            var localDelta = drawable.WorldDeltaToLocal(new Vec2(50, 25));
+
+            Assert.Equal(10, localDelta.X, 5);
+            Assert.Equal(5, localDelta.Y, 5);
+        }
+
+        [Fact]
+        public void StretchMode_FitsNestedEntityContentToEntitySize()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.SizeMode = SizeMode.Stretch;
+            parent.Size = new Vec2(100, 50);
+            var child = parent.CreateChild();
+            child.Position = new Vec2(10, 20);
+            var drawable = child.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(2, 3);
+            drawable.Size = new Vec2(20, 10);
+            parent.Entities.Update(0);
+
+            Assert.Equal(new Rectangle(Vec2.Zero, new Vec2(100, 50)), drawable.WorldBounds);
+        }
+
+        [Fact]
+        public void NoneMode_KeepsExplicitSizeWithoutConstrainingChildren()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.SizeMode = SizeMode.None;
+            parent.Size = new Vec2(40, 50);
+            var drawable = parent.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(10, 20);
+            drawable.Size = new Vec2(80, 90);
+
+            Assert.Equal(new Vec2(40, 50), parent.Size);
+            Assert.Equal(new Rectangle(new Vec2(10, 20), new Vec2(80, 90)), drawable.WorldBounds);
+        }
+
+        [Fact]
+        public void ClipPolygon_IntersectsRotatedEntityBounds()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(20, 30);
+            parent.Rotation = 45;
+            parent.SizeMode = SizeMode.Clip;
+            parent.Size = new Vec2(30, 30);
+            var child = parent.CreateChild();
+            child.Position = new Vec2(5, 5);
+            child.Rotation = -20;
+            child.SizeMode = SizeMode.Clip;
+            child.Size = new Vec2(20, 20);
+            parent.Entities.Update(0);
+
+            var polygon = Canvas2d.GetClipPolygon(new[] { parent, child });
+
+            Assert.True(polygon.Count >= 3);
+            Assert.All(polygon, point =>
+            {
+                Assert.True(IsWithinQuad(point, parent.WorldCorners));
+                Assert.True(IsWithinQuad(point, child.WorldCorners));
+            });
         }
 
         [Fact]
@@ -78,7 +206,7 @@ namespace TypeOBasic2dTest
         {
             var box = StartScene().Entities.Create<Box>();
             box.Position = new Vec2(10, 20);
-            box.Size = new Vec2(30, 40);
+            SetSize(box, new Vec2(30, 40));
 
             Assert.Equal(new Rectangle(new Vec2(10, 20), new Vec2(30, 40)), box.ScreenBounds);
         }
@@ -90,7 +218,7 @@ namespace TypeOBasic2dTest
             parent.Position = new Vec2(100, 200);
             var child = parent.CreateChild();
             child.Position = new Vec2(5, 6);
-            child.Size = new Vec2(7, 8);
+            SetSize(child, new Vec2(7, 8));
 
             Assert.Same(parent, child.Parent);
             Assert.Equal(new Rectangle(new Vec2(105, 206), new Vec2(7, 8)), child.ScreenBounds);
@@ -104,7 +232,7 @@ namespace TypeOBasic2dTest
             parent.Scale = new Vec2(2, 3);
             var child = parent.CreateChild();
             child.Position = new Vec2(5, 6);
-            child.Size = new Vec2(7, 8);
+            SetSize(child, new Vec2(7, 8));
 
             Assert.Equal(new Rectangle(new Vec2(110, 218), new Vec2(14, 24)), child.ScreenBounds);
         }
@@ -117,7 +245,7 @@ namespace TypeOBasic2dTest
             parent.Rotation = 90;
             var child = parent.CreateChild();
             child.Position = new Vec2(10, 0);
-            child.Size = new Vec2(4, 6);
+            SetSize(child, new Vec2(4, 6));
 
             Assert.Equal(94, child.ScreenBounds.Pos.X, 5);
             Assert.Equal(210, child.ScreenBounds.Pos.Y, 5);
@@ -130,10 +258,10 @@ namespace TypeOBasic2dTest
         {
             var parent = StartScene().Entities.Create<Box>();
             parent.Position = new Vec2(100, 200);
-            parent.Size = new Vec2(100, 80);
+            SetSize(parent, new Vec2(100, 80));
             parent.Origin = new Vec2(0.5, 0.5);
             var child = parent.CreateChild();
-            child.Size = Vec2.One;
+            SetSize(child, Vec2.One);
 
             Assert.Equal(new Rectangle(new Vec2(50, 160), Vec2.One), child.ScreenBounds);
         }
@@ -165,7 +293,7 @@ namespace TypeOBasic2dTest
             parent.Rotation = 90;
             var child = parent.CreateChild();
             child.Position = new Vec2(10, 0);
-            child.Size = new Vec2(4, 6);
+            SetSize(child, new Vec2(4, 6));
             var debugDrawable = parent.Drawables.Create<Debug2DDrawable>();
             debugDrawable.TypeOObject = child;
 
@@ -187,7 +315,7 @@ namespace TypeOBasic2dTest
             parent.Position = new Vec2(100, 200);
             parent.Rotation = 45;
             var child = parent.CreateChild();
-            child.Size = new Vec2(10, 10);
+            SetSize(child, new Vec2(10, 10));
             var debugDrawable = parent.Drawables.Create<Debug2DDrawable>();
             debugDrawable.TypeOObject = child;
 
@@ -200,10 +328,10 @@ namespace TypeOBasic2dTest
         {
             var parent = StartScene().Entities.Create<Box>();
             parent.Position = new Vec2(100, 200);
-            parent.Size = new Vec2(10, 10);
+            SetSize(parent, new Vec2(10, 10));
             var child = parent.CreateChild();
             child.Position = new Vec2(30, 0);
-            child.Size = new Vec2(10, 10);
+            SetSize(child, new Vec2(10, 10));
 
             var rootComponent = new TypeD.Models.Data.Component();
             var visibleComponent = new TypeD.Models.Data.Component();
@@ -240,6 +368,29 @@ namespace TypeOBasic2dTest
             Assert.Equal(expected.Y, actual.Y, 5);
         }
 
+        private static bool IsWithinQuad(
+            Vec2 point,
+            (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) corners)
+        {
+            var vertices = new[] { corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft };
+            var sign = 0;
+            for (var i = 0; i < vertices.Length; i++)
+            {
+                var edge = vertices[(i + 1) % vertices.Length] - vertices[i];
+                var relative = point - vertices[i];
+                var cross = edge.X * relative.Y - edge.Y * relative.X;
+                if (Math.Abs(cross) < 1e-5)
+                    continue;
+
+                var currentSign = Math.Sign(cross);
+                if (sign != 0 && currentSign != sign)
+                    return false;
+                sign = currentSign;
+            }
+
+            return true;
+        }
+
         [Fact]
         public void ChildModelMatrix_RefreshesWhenParentChanges()
         {
@@ -247,7 +398,7 @@ namespace TypeOBasic2dTest
             parent.Position = new Vec2(100, 200);
             var child = parent.CreateChild();
             child.Position = new Vec2(5, 6);
-            child.Size = Vec2.One;
+            SetSize(child, Vec2.One);
 
             Assert.Equal(new Vec2(105, 206), child.ScreenBounds.Pos);
             parent.Position = new Vec2(200, 300);
@@ -313,7 +464,7 @@ namespace TypeOBasic2dTest
         {
             var box = StartScene().Entities.Create<Box>();
             box.Position = new Vec2(100, 200);
-            box.Size = new Vec2(100, 100);
+            SetSize(box, new Vec2(100, 100));
 
             var anchor = box.CreateAnchor(new Vec2(10, 20), orientation, OrientationType.Absolute);
 
@@ -329,7 +480,7 @@ namespace TypeOBasic2dTest
         {
             var box = StartScene().Entities.Create<Box>();
             box.Position = new Vec2(100, 200);
-            box.Size = new Vec2(100, 100);
+            SetSize(box, new Vec2(100, 100));
 
             var anchor = box.CreateAnchor(new Vec2(0.25, 0.5), orientation, OrientationType.Fraction);
 

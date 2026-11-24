@@ -46,9 +46,9 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             }
 
             /// <summary>
-            /// Gets or sets how the texture is rendered within the Size bounds.
+            /// Gets or sets how the texture is rendered within the Size bounds. Auto uses the texture's natural size.
             /// </summary>
-            [TypeOProperty("Gets or sets how the texture is rendered within the Size bounds.", Group = "Rendering")]
+            [TypeOProperty("Gets or sets how the texture is rendered within the Size bounds. Auto uses the texture's natural size.", Group = "Rendering")]
             public SizeMode SizeMode { get; set; }
 
             /// <summary>

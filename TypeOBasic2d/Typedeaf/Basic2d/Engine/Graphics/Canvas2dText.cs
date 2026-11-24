@@ -39,8 +39,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                     Matrix4.CreateTranslation((float)-originOffset.X, (float)-originOffset.Y, 0) *
                     Matrix4.CreateRotationZ(MathHelper.DegreesToRadians((float)rotation)) *
                     Matrix4.CreateTranslation((float)(position.X + originOffset.X), (float)(position.Y + originOffset.Y), 0);
-                if (anchor is Entity2d entity)
-                    modelMatrix *= entity.ModelMatrix;
+                modelMatrix *= GetAnchorMatrix(anchor);
 
                 Rectangle? clipRect = source.HasValue
                     ? new Rectangle(
@@ -48,17 +47,18 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                         source.Value.Size)
                     : null;
 
-                tkFont.DrawTransformed(
-                    text,
-                    scale ?? Vec2.One,
-                    color ?? Color.White,
-                    flipped,
-                    modelMatrix,
-                    new Vec2(tkCanvas.WorldTranslation.X, tkCanvas.WorldTranslation.Y),
-                    tkCanvas.WorldScale,
-                    (float)tkCanvas.Viewport.Size.Y,
-                    clipRect
-                );
+                DrawWithEntityClipping(canvas, anchor, () =>
+                    tkFont.DrawTransformed(
+                        text,
+                        scale ?? Vec2.One,
+                        color ?? Color.White,
+                        flipped,
+                        modelMatrix,
+                        new Vec2(tkCanvas.WorldTranslation.X, tkCanvas.WorldTranslation.Y),
+                        tkCanvas.WorldScale,
+                        (float)tkCanvas.Viewport.Size.Y,
+                        clipRect
+                    ));
             }
         }
     }
