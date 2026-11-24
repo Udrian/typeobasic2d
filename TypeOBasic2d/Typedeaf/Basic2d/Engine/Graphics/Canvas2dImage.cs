@@ -35,22 +35,18 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         {
             if (canvas is TKCanvas tkCanvas && texture is TKTexture tkTexture)
             {
-                // The clip area is in the same space as the position, so it gets the same offsets
-                var offset = (anchor?.Position ?? Vec2.Zero) + (origin ?? Vec2.Zero);
+                var imagePosition = pos;
+                var offset = anchor?.Position ?? Vec2.Zero;
                 pos += offset;
 
-                // Enable scissor test if source clipping is specified
-                if (source.HasValue)
-                {
-                    var sourceRect = source.Value;
-                    EnableScissorTest(tkCanvas, ToScreen(tkCanvas, new Rectangle(sourceRect.Pos + offset, sourceRect.Size)));
-                }
-
-                ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White);
-                tkTexture.Use();
-
                 TexturedPrimitive.PrimitiveDrawType = PrimitiveDrawType.Triangle;
-                TexturedPrimitive.Size = texture.Size * (scale ?? Vec2.One);
+                var imageSize = texture.Size * (scale ?? Vec2.One);
+                TexturedPrimitive.Size = imageSize;
+                if (source.HasValue && !ApplySourceClip(TexturedPrimitive, imagePosition, imageSize, source.Value))
+                    return;
+
+                ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White, origin);
+                tkTexture.Use();
                 
                 // Apply flipping by modifying texture coordinates
                 ApplyFlipping(TexturedPrimitive, flipped);
@@ -58,15 +54,45 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 TexturedPrimitive.Draw();
                 
                 // Reset texture coordinates to default state for next draw
-                if (flipped != Flipped.None)
-                    ResetFlipping(TexturedPrimitive);
-
-                // Disable scissor test after drawing
-                if (source.HasValue)
-                {
-                    DisableScissorTest();
-                }
+                ResetFlipping(TexturedPrimitive);
             }
+        }
+
+        internal static bool ApplySourceClip(TexturedPrimitive primitive, Vec2 imagePosition, Vec2 imageSize, Rectangle source)
+        {
+            if (imageSize.X == 0 || imageSize.Y == 0)
+                return false;
+
+            var imageLeft = Math.Min(0, imageSize.X);
+            var imageTop = Math.Min(0, imageSize.Y);
+            var imageRight = Math.Max(0, imageSize.X);
+            var imageBottom = Math.Max(0, imageSize.Y);
+            var sourceLeft = Math.Min(source.Pos.X, source.Pos.X + source.Size.X) - imagePosition.X;
+            var sourceTop = Math.Min(source.Pos.Y, source.Pos.Y + source.Size.Y) - imagePosition.Y;
+            var sourceRight = Math.Max(source.Pos.X, source.Pos.X + source.Size.X) - imagePosition.X;
+            var sourceBottom = Math.Max(source.Pos.Y, source.Pos.Y + source.Size.Y) - imagePosition.Y;
+
+            var left = Math.Max(imageLeft, sourceLeft);
+            var top = Math.Max(imageTop, sourceTop);
+            var right = Math.Min(imageRight, sourceRight);
+            var bottom = Math.Min(imageBottom, sourceBottom);
+            if (right <= left || bottom <= top)
+                return false;
+
+            var leftU = left / imageSize.X;
+            var topV = top / imageSize.Y;
+            var rightU = right / imageSize.X;
+            var bottomV = bottom / imageSize.Y;
+
+            primitive.Vertices[0].Position = new Vec3(right, top, 0);
+            primitive.Vertices[0].TexCoord = new Vec2(rightU, topV);
+            primitive.Vertices[1].Position = new Vec3(right, bottom, 0);
+            primitive.Vertices[1].TexCoord = new Vec2(rightU, bottomV);
+            primitive.Vertices[2].Position = new Vec3(left, bottom, 0);
+            primitive.Vertices[2].TexCoord = new Vec2(leftU, bottomV);
+            primitive.Vertices[3].Position = new Vec3(left, top, 0);
+            primitive.Vertices[3].TexCoord = new Vec2(leftU, topV);
+            return true;
         }
 
         /// <summary>

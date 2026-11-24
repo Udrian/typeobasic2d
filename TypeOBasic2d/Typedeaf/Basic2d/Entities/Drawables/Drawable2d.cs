@@ -73,7 +73,6 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                         new Vec2(0, scaledSize.Y)
                     };
 
-                    var rotatedCorners = new Vec2[4];
                     var minX = double.MaxValue;
                     var maxX = double.MinValue;
                     var minY = double.MaxValue;
@@ -81,9 +80,9 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
 
                     for (int i = 0; i < 4; i++)
                     {
-                        var x = corners[i].X * cosRot - corners[i].Y * sinRot;
-                        var y = corners[i].X * sinRot + corners[i].Y * cosRot;
-                        rotatedCorners[i] = new Vec2(x, y);
+                        var relativeCorner = corners[i] - originOffset;
+                        var x = relativeCorner.X * cosRot - relativeCorner.Y * sinRot;
+                        var y = relativeCorner.X * sinRot + relativeCorner.Y * cosRot;
 
                         minX = Math.Min(minX, x);
                         maxX = Math.Max(maxX, x);
@@ -92,7 +91,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     }
 
                     var boundingSize = new Vec2(maxX - minX, maxY - minY);
-                    var adjustedPos = boundingPos + new Vec2(minX, minY);
+                    var adjustedPos = Position + new Vec2(minX, minY);
                     return new Rectangle(adjustedPos, boundingSize);
                 }
             }

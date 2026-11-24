@@ -168,6 +168,7 @@ namespace TypeOBasic2dTest
             Assert.Equal(0, drawable.Rotation);
             Assert.Equal(Color.White, drawable.Color);
             Assert.Equal(Flipped.None, drawable.Flipped);
+            Assert.Equal(SizeMode.Clip, drawable.SizeMode);
             Assert.Empty(drawable.Lines);
             Assert.Equal(Vec2.Zero, drawable.Size);
         }
@@ -233,20 +234,35 @@ namespace TypeOBasic2dTest
                 Position = new Vec2(1, 2),
                 Font = font,
                 Text = "hi",
+                Size = new Vec2(80, 60),
                 Scale = new Vec2(2, 2),
                 Rotation = 30,
                 Color = Color.Orange,
-                Flipped = Flipped.Both
+                Flipped = Flipped.Both,
+                SizeMode = SizeMode.Stretch
             });
 
             Assert.Equal(new Vec2(1, 2), drawable.Position);
             Assert.Same(font, drawable.Font);
             Assert.Equal("hi", drawable.Text);
+            Assert.Equal(new Vec2(80, 60), drawable.Size);
             Assert.Equal(new Vec2(2, 2), drawable.Scale);
             Assert.Equal(30, drawable.Rotation);
             Assert.Equal(Color.Orange, drawable.Color);
             Assert.Equal(Flipped.Both, drawable.Flipped);
-            Assert.Equal(new Vec2(20, 20), drawable.Size);
+            Assert.Equal(SizeMode.Stretch, drawable.SizeMode);
+        }
+
+        [Fact]
+        public void DrawableFontOption_AppliesNoneSizeMode()
+        {
+            var owner = StartOwner();
+            var drawable = owner.Drawables.Create<DrawableFont>(option: new DrawableFontOption
+            {
+                SizeMode = SizeMode.None
+            });
+
+            Assert.Equal(SizeMode.None, drawable.SizeMode);
         }
 
         [Fact]
@@ -627,6 +643,26 @@ namespace TypeOBasic2dTest
             var bb = drawable.BoundingBox;
             Assert.NotEqual(new Vec2(50, 50), bb.Size); // Rotated size should be different
             Assert.True(bb.Size.X > 0 && bb.Size.Y > 0);
+        }
+
+        [Fact]
+        public void DrawableTexture_WithOriginAndRotation_BoundingBoxStaysAroundPosition()
+        {
+            var drawable = new DrawableTexture
+            {
+                Texture = new StubTexture(new Vec2i(20, 10)),
+                Position = new Vec2(100, 100),
+                Origin = new Vec2(0.5, 0.5),
+                Scale = new Vec2(2, 1),
+                Rotation = 90
+            };
+
+            var boundingBox = drawable.BoundingBox;
+
+            Assert.InRange(Math.Abs(boundingBox.Pos.X - 95), 0, 1e-10);
+            Assert.InRange(Math.Abs(boundingBox.Pos.Y - 80), 0, 1e-10);
+            Assert.InRange(Math.Abs(boundingBox.Size.X - 10), 0, 1e-10);
+            Assert.InRange(Math.Abs(boundingBox.Size.Y - 40), 0, 1e-10);
         }
 
         [Fact]

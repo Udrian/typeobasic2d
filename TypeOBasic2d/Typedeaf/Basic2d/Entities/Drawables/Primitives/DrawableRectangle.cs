@@ -28,7 +28,7 @@ namespace TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives
         {
             var scaledSize = Size * Scale;
             var position = Position - scaledSize * Origin;
-            canvas.DrawRectangle(position, scaledSize, Filled, Color, Rotation);
+            canvas.DrawRectangle(position, scaledSize, Filled, Color, Rotation, scaledSize * Origin);
         }
 
         /// <inheritdoc/>

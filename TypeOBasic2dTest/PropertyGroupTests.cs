@@ -23,6 +23,7 @@ public class PropertyGroupTests
     [InlineData(typeof(DrawableTexture), "Color", "Rendering")]
     [InlineData(typeof(DrawableTexture), "Flipped", "Rendering")]
     [InlineData(typeof(DrawableTexture), "SizeMode", "Rendering")]
+    [InlineData(typeof(DrawableFont), "SizeMode", "Rendering")]
     public void BuiltInProperties_PreserveGroupsIncludingInheritedAttributes(Type type, string name, string group)
     {
         var attribute = type.GetProperty(name).GetCustomAttribute<TypeOPropertyAttribute>(true);

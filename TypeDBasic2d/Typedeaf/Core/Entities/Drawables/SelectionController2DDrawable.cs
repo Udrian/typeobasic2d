@@ -38,6 +38,10 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             public Vec2 StartPosition { get; init; }
             public Vec2 StartSize { get; init; }
             public Vec2 StartBoundsPos { get; init; }
+            public double StartRotation { get; init; }
+            public Vec2 RotationPivot { get; init; }
+            public double PreviousPointerAngle { get; set; }
+            public double RotationDelta { get; set; }
         }
 
         private const double GizmoLength = 48;
@@ -308,6 +312,19 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 else if (topmost != null && !topmost.Focused)
                     Select(new[] { topmost }, topmost);
             }
+            else if (tool == EditorTool.Rotate)
+            {
+                if (topmost != null)
+                {
+                    if (!topmost.Focused)
+                        Select(new[] { topmost }, topmost);
+                    BeginDrag(EditorTool.Rotate, new[] { topmost }, mousePos, false, false, ResizeAxes.None);
+                }
+                else if (selected.Count == 1 && selected[0].ContainsPoint(mousePos))
+                {
+                    BeginDrag(EditorTool.Rotate, selected, mousePos, false, false, ResizeAxes.None);
+                }
+            }
         }
 
         private void BeginBoxSelection(Vec2 mousePos, bool addToSelection)
@@ -417,12 +434,19 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             IsDraggingX = isDraggingX;
             IsDraggingY = isDraggingY;
             DragResizeAxes = axes;
-            DragItems = dragItems.Select(d => new DragItem
+            DragItems = dragItems.Select(d =>
             {
-                Drawable = d,
-                StartPosition = d.GetObjectPosition(),
-                StartSize = d.GetObjectSize(),
-                StartBoundsPos = d.GetBounds().Pos
+                var pivot = d.GetObjectPivot();
+                return new DragItem
+                {
+                    Drawable = d,
+                    StartPosition = d.GetObjectPosition(),
+                    StartSize = d.GetObjectSize(),
+                    StartBoundsPos = d.GetBounds().Pos,
+                    StartRotation = d.GetObjectRotation(),
+                    RotationPivot = pivot,
+                    PreviousPointerAngle = Math.Atan2(mousePos.Y - pivot.Y, mousePos.X - pivot.X)
+                };
             }).ToList();
             DragStartCombined = CombinedBounds(dragItems);
             DragStartOrigin = dragItems[0].GetObjectOrigin();
@@ -500,6 +524,19 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     boundingBox.Size.X > 0 ? relativePos.X / boundingBox.Size.X : 0,
                     boundingBox.Size.Y > 0 ? relativePos.Y / boundingBox.Size.Y : 0);
             }
+            else if (DragTool == EditorTool.Rotate)
+            {
+                var item = DragItems[0];
+                var pointerAngle = Math.Atan2(mousePos.Y - item.RotationPivot.Y, mousePos.X - item.RotationPivot.X);
+                var deltaAngle = pointerAngle - item.PreviousPointerAngle;
+                if (deltaAngle > Math.PI)
+                    deltaAngle -= 2 * Math.PI;
+                else if (deltaAngle < -Math.PI)
+                    deltaAngle += 2 * Math.PI;
+                item.RotationDelta += deltaAngle * (180 / Math.PI);
+                item.PreviousPointerAngle = pointerAngle;
+                item.Drawable.SetObjectRotation(item.StartRotation + item.RotationDelta);
+            }
 
             foreach (var item in DragItems)
                 item.Drawable.UpdateLines();
@@ -518,9 +555,15 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
             if (DragTool == EditorTool.Origin && PreviewOrigin != DragStartOrigin)
                 ExecutePropertyChange(DragItems[0].Drawable.Component, "Origin", PreviewOrigin);
+            if (DragTool == EditorTool.Rotate)
+            {
+                var item = DragItems[0];
+                if (item.Drawable.GetObjectRotation() != item.StartRotation)
+                    ExecutePropertyChange(item.Drawable.Component, "Rotation", item.Drawable.GetObjectRotation());
+            }
         }
 
-        private void ExecutePropertyChange(Component component, string propertyName, Vec2 value)
+        private void ExecutePropertyChange(Component component, string propertyName, object value)
         {
             var property = component?.Properties.FirstOrDefault(candidate => candidate.Name == propertyName);
             if (property == null)

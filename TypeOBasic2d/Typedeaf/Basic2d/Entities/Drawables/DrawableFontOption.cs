@@ -15,10 +15,14 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public Font Font { get; set; }
             /// <summary>Gets or sets the text to draw.</summary>
             public string Text { get; set; }
+            /// <summary>Gets or sets the target size for clipping or stretching.</summary>
+            public Vec2? Size { get; set; }
             /// <summary>Gets or sets the text color.</summary>
             public Color? Color { get; set; }
             /// <summary>Gets or sets how the text is flipped.</summary>
             public Flipped? Flipped { get; set; }
+            /// <summary>Gets or sets how the text is rendered within its size bounds.</summary>
+            public SizeMode? SizeMode { get; set; }
 
             /// <summary>
             /// Applies the options that were set to the given drawable.
@@ -33,10 +37,14 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     obj.Font = Font;
                 if(Text != null)
                     obj.Text = Text;
+                if(Size.HasValue)
+                    obj.Size = Size.Value;
                 if(Color.HasValue)
                     obj.Color = Color.Value;
                 if(Flipped.HasValue)
                     obj.Flipped = Flipped.Value;
+                if(SizeMode.HasValue)
+                    obj.SizeMode = SizeMode.Value;
 
                 return true;
             }

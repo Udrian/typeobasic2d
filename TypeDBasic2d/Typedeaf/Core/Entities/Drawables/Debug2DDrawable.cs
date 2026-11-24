@@ -201,11 +201,38 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             Size = size;
         }
 
+        internal void SetObjectRotation(double rotation)
+        {
+            if (TypeOObject is Entity2d entity)
+                entity.Rotation = rotation;
+            else if (TypeOObject is Drawable2d drawable)
+                drawable.Rotation = rotation;
+            Rotation = rotation;
+        }
+
         internal Vec2 GetObjectOrigin()
         {
             if (TypeOObject is Drawable2d drawable)
                 return drawable.Origin;
             return Vec2.Zero;
+        }
+
+        internal double GetObjectRotation()
+        {
+            if (TypeOObject is Entity2d entity)
+                return entity.Rotation;
+            if (TypeOObject is Drawable2d drawable)
+                return drawable.Rotation;
+            return 0;
+        }
+
+        internal Vec2 GetObjectPivot()
+        {
+            if (TypeOObject is Entity2d entity)
+                return entity.Position + ((entity.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero);
+            if (TypeOObject is Drawable2d drawable)
+                return drawable.Position + ((drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero);
+            return Position;
         }
 
         private Vec2 GetPos()

@@ -105,7 +105,10 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     actualSize = displaySize * Scale;
                 }
 
-                var originOffset = actualSize * Origin;
+                var originSize = SizeMode == SizeMode.Clip && displaySize != Vec2.Zero
+                    ? displaySize * drawScale
+                    : actualSize;
+                var originOffset = originSize * Origin;
 
                 // When SizeMode is Clip and Size is set, use the bounding box as the clipping region
                 Rectangle? sourceRect = null;
@@ -119,6 +122,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     Position - originOffset,
                     scale: drawScale,
                     rotation: Rotation,
+                    origin: originOffset,
                     color: Color,
                     flipped: Flipped,
                     source: sourceRect,

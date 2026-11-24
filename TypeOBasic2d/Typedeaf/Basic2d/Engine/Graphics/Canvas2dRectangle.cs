@@ -28,7 +28,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         }
 
         /// <summary>
-        /// Draws a rectangle with rotation around its starting position.
+        /// Draws a rectangle with rotation around the specified local origin.
         /// </summary>
         /// <param name="canvas">Canvas to draw the rectangle on.</param>
         /// <param name="pos">Starting position of the rectangle.</param>
@@ -39,10 +39,26 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="anchor">Transform position anchor.</param>
         public static void DrawRectangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation, IAnchor2d anchor = null)
         {
+            DrawRectangle(canvas, pos, size, filled, color, rotation, null, anchor);
+        }
+
+        /// <summary>
+        /// Draws a rectangle with rotation around a local origin.
+        /// </summary>
+        /// <param name="canvas">Canvas to draw the rectangle on.</param>
+        /// <param name="pos">Starting position of the rectangle.</param>
+        /// <param name="size">Rectangle size.</param>
+        /// <param name="filled">Whether to fill the rectangle or draw only its outline.</param>
+        /// <param name="color">Color of the rectangle.</param>
+        /// <param name="rotation">Rotation angle in degrees.</param>
+        /// <param name="anchor">Transform position anchor.</param>
+        /// <param name="origin">Local position to rotate around.</param>
+        public static void DrawRectangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation, Vec2? origin, IAnchor2d anchor = null)
+        {
             if (canvas is TKCanvas tkCanvas)
             {
                 pos = (pos + anchor?.Position) ?? pos;
-                ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color);
+                ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin);
 
                 RectanglePrimitive.PrimitiveDrawType = filled ? PrimitiveDrawType.Triangle : PrimitiveDrawType.Line;
                 RectanglePrimitive.Size = size;

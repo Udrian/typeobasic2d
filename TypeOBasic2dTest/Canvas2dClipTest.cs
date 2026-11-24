@@ -1,5 +1,6 @@
 using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.TK.Engine.Graphics.Primitives;
 
 namespace TypeOBasic2dTest
 {
@@ -63,6 +64,38 @@ namespace TypeOBasic2dTest
 
             Assert.Equal(0, width);
             Assert.Equal(0, height);
+        }
+
+        [Fact]
+        public void ApplySourceClip_ClipsTexturedQuadInLocalCoordinates()
+        {
+            var primitive = new TexturedPrimitive(new Vec2(100, 50));
+
+            var applied = Canvas2d.ApplySourceClip(
+                primitive,
+                new Vec2(10, 20),
+                new Vec2(100, 50),
+                new Rectangle(20, 25, 25, 10));
+
+            Assert.True(applied);
+            Assert.Equal(new Vec2(35, 5), new Vec2(primitive.Vertices[0].Position.X, primitive.Vertices[0].Position.Y));
+            Assert.Equal(new Vec2(0.35, 0.1), primitive.Vertices[0].TexCoord);
+            Assert.Equal(new Vec2(10, 15), new Vec2(primitive.Vertices[2].Position.X, primitive.Vertices[2].Position.Y));
+            Assert.Equal(new Vec2(0.1, 0.3), primitive.Vertices[2].TexCoord);
+        }
+
+        [Fact]
+        public void ApplySourceClip_ReturnsFalseWhenSourceDoesNotIntersectImage()
+        {
+            var primitive = new TexturedPrimitive(new Vec2(100, 50));
+
+            var applied = Canvas2d.ApplySourceClip(
+                primitive,
+                new Vec2(10, 20),
+                new Vec2(100, 50),
+                new Rectangle(200, 200, 25, 10));
+
+            Assert.False(applied);
         }
     }
 }

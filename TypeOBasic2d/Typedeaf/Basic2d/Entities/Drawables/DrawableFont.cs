@@ -13,7 +13,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
         /// Represents a drawable text element that can be rendered on a 2D canvas using a specified font.
         /// </summary>
         /// <remarks>This class allows rendering multi-line text with customizable properties such as
-        /// font, scale, rotation, color, and flipping. The text is automatically split into lines based on newline
+        /// font, scale, rotation, color, flipping, and size mode. The text is automatically split into lines based on newline
         /// characters, and the size of the drawable is updated accordingly.</remarks>
         public class DrawableFont : Drawable2d
         {
@@ -93,11 +93,20 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             [TypeOProperty("Gets or sets the flipped state of the object.", Group = "Rendering")]
             public Flipped Flipped { get; set; }
 
+            /// <summary>
+            /// Gets or sets how the text is rendered within its size bounds.
+            /// </summary>
+            [TypeOProperty("Gets or sets how the text is rendered within its size bounds.", Group = "Rendering")]
+            public SizeMode SizeMode { get; set; }
+
+            private Vec2 TextSize { get; set; }
+
             private void UpdateSizeAndLines()
             {
                 Lines.Clear();
                 if(Text == null || Font == null)
                 {
+                    TextSize = Vec2.Zero;
                     Size = new Vec2(0);
                     return;
                 }
@@ -116,7 +125,8 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                         startIndex = i + 1;
                     }
                 }
-                Size = new Vec2(width, height);
+                TextSize = new Vec2(width, height);
+                Size = TextSize;
             }
 
             /// <summary>
@@ -131,6 +141,7 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                 Rotation = 0;
                 Color = Color.White;
                 Flipped = Flipped.None;
+                SizeMode = SizeMode.Clip;
                 Lines = new List<string>();
             }
 
@@ -163,25 +174,44 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             {
                 if(Font == null || Text == null) return;
                 
-                var actualSize = Size * Scale;
-                var originOffset = actualSize * Origin;
+                var drawScale = Scale;
+                if (SizeMode == SizeMode.Stretch && Size != Vec2.Zero && TextSize != Vec2.Zero)
+                {
+                    var stretchScale = new Vec2(
+                        TextSize.X != 0 ? Size.X / TextSize.X : 1,
+                        TextSize.Y != 0 ? Size.Y / TextSize.Y : 1);
+                    drawScale *= stretchScale;
+                }
+
+                var actualSize = TextSize * drawScale;
+                var originSize = SizeMode == SizeMode.Clip && Size != Vec2.Zero
+                    ? Size * Scale
+                    : actualSize;
+                var originOffset = originSize * Origin;
                 var position = new Vec2(Position.X, Position.Y) - originOffset;
 
-                var ySize = Font.MeasureString(Text).Y;
+                var lineOffset = Vec2.Zero;
+                Rectangle? clipRect = SizeMode == SizeMode.Clip && Size != Vec2.Zero
+                    ? new Rectangle(position, Size * Scale)
+                    : null;
                 foreach (var line in Lines)
                 {
                     canvas.DrawText(
                         line,
                         Font,
                         position,
-                        scale: Scale,
+                        scale: drawScale,
                         rotation: Rotation,
+                        origin: originOffset - lineOffset,
                         color: Color,
                         flipped: Flipped,
+                        source: clipRect,
                         anchor: Parent as Entity2d
                     );
 
-                    position.Y += ySize;
+                    var lineHeight = Font.MeasureString(line).Y * drawScale.Y;
+                    position.Y += lineHeight;
+                    lineOffset.Y += lineHeight;
                 }
             }
         }

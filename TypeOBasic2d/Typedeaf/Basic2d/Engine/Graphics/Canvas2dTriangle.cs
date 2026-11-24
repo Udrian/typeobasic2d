@@ -25,9 +25,25 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="size">Width and height of the triangle.</param>
         /// <param name="filled">Whether to fill the triangle or draw only its outline.</param>
         /// <param name="color">Color of the triangle.</param>
-        /// <param name="rotation">Rotation angle in degrees around <paramref name="pos"/>.</param>
+        /// <param name="rotation">Rotation angle in degrees.</param>
         /// <param name="anchor">Transform position anchor.</param>
         public static void DrawTriangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation = 0, IAnchor2d anchor = null)
+        {
+            DrawTriangle(canvas, pos, size, filled, color, rotation, null, anchor);
+        }
+
+        /// <summary>
+        /// Draws an isosceles triangle with rotation around a local origin.
+        /// </summary>
+        /// <param name="canvas">Canvas to draw the triangle on.</param>
+        /// <param name="pos">Top-left position of the triangle.</param>
+        /// <param name="size">Width and height of the triangle.</param>
+        /// <param name="filled">Whether to fill the triangle or draw only its outline.</param>
+        /// <param name="color">Color of the triangle.</param>
+        /// <param name="rotation">Rotation angle in degrees.</param>
+        /// <param name="anchor">Transform position anchor.</param>
+        /// <param name="origin">Local position to rotate around.</param>
+        public static void DrawTriangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation, Vec2? origin, IAnchor2d anchor = null)
         {
             if (canvas is not TKCanvas tkCanvas)
                 return;
@@ -47,7 +63,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             }
 
             pos = (pos + anchor?.Position) ?? pos;
-            ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color);
+            ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin);
             if (filled)
                 TriangleFillPrimitive.Draw();
             else
