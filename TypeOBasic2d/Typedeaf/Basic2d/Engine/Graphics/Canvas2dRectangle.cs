@@ -24,10 +24,25 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="anchor">Transform position anchor</param>
         public static void DrawRectangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, IAnchor2d anchor = null)
         {
+            DrawRectangle(canvas, pos, size, filled, color, 0, anchor);
+        }
+
+        /// <summary>
+        /// Draws a rectangle with rotation around its starting position.
+        /// </summary>
+        /// <param name="canvas">Canvas to draw the rectangle on.</param>
+        /// <param name="pos">Starting position of the rectangle.</param>
+        /// <param name="size">Rectangle size.</param>
+        /// <param name="filled">Whether to fill the rectangle or draw only its outline.</param>
+        /// <param name="color">Color of the rectangle.</param>
+        /// <param name="rotation">Rotation angle in degrees.</param>
+        /// <param name="anchor">Transform position anchor.</param>
+        public static void DrawRectangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation, IAnchor2d anchor = null)
+        {
             if (canvas is TKCanvas tkCanvas)
             {
                 pos = (pos + anchor?.Position) ?? pos;
-                ActivateShader(tkCanvas.Shader, tkCanvas, pos, 0, color);
+                ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color);
 
                 RectanglePrimitive.PrimitiveDrawType = filled ? PrimitiveDrawType.Triangle : PrimitiveDrawType.Line;
                 RectanglePrimitive.Size = size;

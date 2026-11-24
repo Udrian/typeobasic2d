@@ -48,6 +48,9 @@ namespace TypeDBasic2d
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableTextureComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableFontComponent());
+            ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableRectangleComponent());
+            ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableCircleComponent());
+            ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableTriangleComponent());
 
             // Hooks
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
@@ -69,6 +72,9 @@ namespace TypeDBasic2d
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableTextureComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableFontComponent());
+            ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableRectangleComponent());
+            ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableCircleComponent());
+            ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableTriangleComponent());
 
             // Hooks
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
