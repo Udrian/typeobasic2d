@@ -1,3 +1,4 @@
+using OpenTK.Mathematics;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
@@ -32,27 +33,30 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         {
             if (canvas is TKCanvas tkCanvas && font is TKFont tkFont)
             {
-                var worldPosition = pos + (anchor?.Position ?? Vec2.Zero);
-                var worldOrigin = worldPosition + (origin ?? Vec2.Zero);
+                var position = pos + GetAnchorOffset(anchor);
+                var originOffset = origin ?? Vec2.Zero;
+                var modelMatrix =
+                    Matrix4.CreateTranslation((float)-originOffset.X, (float)-originOffset.Y, 0) *
+                    Matrix4.CreateRotationZ(MathHelper.DegreesToRadians((float)rotation)) *
+                    Matrix4.CreateTranslation((float)(position.X + originOffset.X), (float)(position.Y + originOffset.Y), 0);
+                if (anchor is Entity2d entity)
+                    modelMatrix *= entity.ModelMatrix;
 
-                var translation = new Vec2(tkCanvas.WorldTranslation.X, tkCanvas.WorldTranslation.Y);
-                var worldPos = (worldPosition - translation) * tkCanvas.WorldScale;
-                var worldPivot = (worldOrigin - translation) * tkCanvas.WorldScale;
-                var originOffset = worldPivot - worldPos;
                 Rectangle? clipRect = source.HasValue
                     ? new Rectangle(
-                        (source.Value.Pos - pos) * tkCanvas.WorldScale,
-                        source.Value.Size * tkCanvas.WorldScale)
+                        source.Value.Pos - pos,
+                        source.Value.Size)
                     : null;
 
-                tkFont.Draw(
+                tkFont.DrawTransformed(
                     text,
-                    new Vec2(worldPos.X, tkCanvas.Viewport.Size.Y - worldPos.Y),
-                    (scale ?? Vec2.One) * tkCanvas.WorldScale,
+                    scale ?? Vec2.One,
                     color ?? Color.White,
                     flipped,
-                    rotation,
-                    originOffset,
+                    modelMatrix,
+                    new Vec2(tkCanvas.WorldTranslation.X, tkCanvas.WorldTranslation.Y),
+                    tkCanvas.WorldScale,
+                    (float)tkCanvas.Viewport.Size.Y,
                     clipRect
                 );
             }

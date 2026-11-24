@@ -1,6 +1,8 @@
-﻿using TypeOEngine.Typedeaf.Core.Attributes;
+﻿using OpenTK.Mathematics;
+using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Entities.Drawables;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
 
 namespace TypeOEngine.Typedeaf.TypeOBasic2d
 {
@@ -94,6 +96,80 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     var adjustedPos = Position + new Vec2(minX, minY);
                     return new Rectangle(adjustedPos, boundingSize);
                 }
+            }
+
+            /// <summary>
+            /// Gets the axis-aligned world-space bounds of the drawable.
+            /// </summary>
+            public Rectangle WorldBounds
+            {
+                get
+                {
+                    var (topLeft, topRight, bottomRight, bottomLeft) = WorldCorners;
+                    var minX = Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomRight.X, bottomLeft.X));
+                    var minY = Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomRight.Y, bottomLeft.Y));
+                    var maxX = Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomRight.X, bottomLeft.X));
+                    var maxY = Math.Max(Math.Max(topLeft.Y, topRight.Y), Math.Max(bottomRight.Y, bottomLeft.Y));
+                    return new Rectangle(new Vec2(minX, minY), new Vec2(maxX - minX, maxY - minY));
+                }
+            }
+
+            /// <summary>
+            /// Gets the drawable's transformed world-space corners in clockwise order.
+            /// </summary>
+            public (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) WorldCorners
+            {
+                get
+                {
+                    var scaledSize = Size * Scale;
+                    var modelMatrix = GetWorldModelMatrix();
+                    return (
+                        Entity2d.TransformPoint(Vec2.Zero, modelMatrix),
+                        Entity2d.TransformPoint(new Vec2(scaledSize.X, 0), modelMatrix),
+                        Entity2d.TransformPoint(scaledSize, modelMatrix),
+                        Entity2d.TransformPoint(new Vec2(0, scaledSize.Y), modelMatrix));
+                }
+            }
+
+            /// <summary>
+            /// Gets the world-space position of the drawable's origin pivot.
+            /// </summary>
+            public Vec2 WorldPosition => Parent is Entity2d parent
+                ? Entity2d.TransformPoint(Position, parent.ModelMatrix)
+                : Position;
+
+            /// <summary>
+            /// Converts a world-space displacement into the drawable's parent coordinate space.
+            /// </summary>
+            public Vec2 WorldDeltaToLocal(Vec2 worldDelta)
+            {
+                return Parent is Entity2d parent
+                    ? parent.WorldDeltaToLocal(worldDelta)
+                    : worldDelta;
+            }
+
+            /// <summary>
+            /// Converts a world-space point to a normalized origin within this drawable's bounds.
+            /// </summary>
+            public Vec2 GetOriginAtWorldPosition(Vec2 worldPosition)
+            {
+                var localPosition = Entity2d.InverseTransformPoint(worldPosition, GetWorldModelMatrix());
+                var scaledSize = Size * Scale;
+                return new Vec2(
+                    scaledSize.X == 0 ? 0 : localPosition.X / scaledSize.X,
+                    scaledSize.Y == 0 ? 0 : localPosition.Y / scaledSize.Y);
+            }
+
+            private Matrix4 GetWorldModelMatrix()
+            {
+                var originOffset = Size * Scale * Origin;
+                var modelMatrix =
+                    Matrix4.CreateTranslation((float)-originOffset.X, (float)-originOffset.Y, 0) *
+                    Matrix4.CreateRotationZ(MathHelper.DegreesToRadians((float)Rotation)) *
+                    Matrix4.CreateTranslation((float)Position.X, (float)Position.Y, 0);
+                if (Parent is Entity2d parent)
+                    modelMatrix *= parent.ModelMatrix;
+                return modelMatrix;
             }
 
             /// <summary>

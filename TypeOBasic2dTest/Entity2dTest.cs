@@ -1,9 +1,13 @@
+using System.Reflection;
 using TypeOEngine.Typedeaf.Core;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.Basic2d.Engine;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Interfaces;
+using TypeDBasic2d.Typedeaf.Core.Entities.Drawables;
 
 namespace TypeOBasic2dTest
 {
@@ -16,6 +20,13 @@ namespace TypeOBasic2dTest
 
             protected override void Initialize() => base.Initialize();
             protected override void Cleanup() => base.Cleanup();
+        }
+
+        public class BoxDrawable : Drawable2d
+        {
+            public override void Draw(ICanvas canvas) { }
+            protected override void Initialize() { }
+            protected override void Cleanup() { }
         }
 
         public class BoxScene : Scene
@@ -83,6 +94,177 @@ namespace TypeOBasic2dTest
 
             Assert.Same(parent, child.Parent);
             Assert.Equal(new Rectangle(new Vec2(105, 206), new Vec2(7, 8)), child.ScreenBounds);
+        }
+
+        [Fact]
+        public void ScreenBounds_InheritsParentScale()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Scale = new Vec2(2, 3);
+            var child = parent.CreateChild();
+            child.Position = new Vec2(5, 6);
+            child.Size = new Vec2(7, 8);
+
+            Assert.Equal(new Rectangle(new Vec2(110, 218), new Vec2(14, 24)), child.ScreenBounds);
+        }
+
+        [Fact]
+        public void ScreenBounds_InheritsParentRotation()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Rotation = 90;
+            var child = parent.CreateChild();
+            child.Position = new Vec2(10, 0);
+            child.Size = new Vec2(4, 6);
+
+            Assert.Equal(94, child.ScreenBounds.Pos.X, 5);
+            Assert.Equal(210, child.ScreenBounds.Pos.Y, 5);
+            Assert.Equal(6, child.ScreenBounds.Size.X, 5);
+            Assert.Equal(4, child.ScreenBounds.Size.Y, 5);
+        }
+
+        [Fact]
+        public void ScreenBounds_UsesParentSizeAndOrigin()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Size = new Vec2(100, 80);
+            parent.Origin = new Vec2(0.5, 0.5);
+            var child = parent.CreateChild();
+            child.Size = Vec2.One;
+
+            Assert.Equal(new Rectangle(new Vec2(50, 160), Vec2.One), child.ScreenBounds);
+        }
+
+        [Fact]
+        public void DrawableWorldBounds_InheritsParentScaleAndRotation()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Scale = new Vec2(2, 3);
+            parent.Rotation = 90;
+            var drawable = parent.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(5, 6);
+            drawable.Size = new Vec2(10, 20);
+
+            var bounds = drawable.WorldBounds;
+
+            Assert.Equal(22, bounds.Pos.X, 5);
+            Assert.Equal(210, bounds.Pos.Y, 5);
+            Assert.Equal(60, bounds.Size.X, 5);
+            Assert.Equal(20, bounds.Size.Y, 5);
+        }
+
+        [Fact]
+        public void DebugDrawable_UsesRotatedEntityCornersForOutline()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Rotation = 90;
+            var child = parent.CreateChild();
+            child.Position = new Vec2(10, 0);
+            child.Size = new Vec2(4, 6);
+            var debugDrawable = parent.Drawables.Create<Debug2DDrawable>();
+            debugDrawable.TypeOObject = child;
+
+            debugDrawable.UpdateLines();
+            var linesProperty = typeof(Debug2DDrawable).GetProperty("Lines", BindingFlags.Instance | BindingFlags.NonPublic);
+            var lines = Assert.IsType<List<Vec2>>(linesProperty.GetValue(debugDrawable));
+
+            AssertPoint(new Vec2(100, 210), lines[0]);
+            AssertPoint(new Vec2(100, 214), lines[1]);
+            AssertPoint(new Vec2(94, 214), lines[2]);
+            AssertPoint(new Vec2(94, 210), lines[3]);
+            Assert.Equal(lines[0], lines[4]);
+        }
+
+        [Fact]
+        public void DebugDrawable_HitTestUsesRotatedEntityCorners()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Rotation = 45;
+            var child = parent.CreateChild();
+            child.Size = new Vec2(10, 10);
+            var debugDrawable = parent.Drawables.Create<Debug2DDrawable>();
+            debugDrawable.TypeOObject = child;
+
+            Assert.True(debugDrawable.ContainsPoint(new Vec2(100, 207)));
+            Assert.False(debugDrawable.ContainsPoint(new Vec2(93, 200)));
+        }
+
+        [Fact]
+        public void PickTopMost_ResolvesHiddenChildToVisibleParent()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            parent.Size = new Vec2(10, 10);
+            var child = parent.CreateChild();
+            child.Position = new Vec2(30, 0);
+            child.Size = new Vec2(10, 10);
+
+            var rootComponent = new TypeD.Models.Data.Component();
+            var visibleComponent = new TypeD.Models.Data.Component();
+            var hiddenComponent = new TypeD.Models.Data.Component();
+            SetParentComponent(visibleComponent, rootComponent);
+            SetParentComponent(hiddenComponent, visibleComponent);
+            visibleComponent.DefinitionChildren.Add(hiddenComponent);
+
+            var visibleOverlay = parent.Drawables.Create<Debug2DDrawable>();
+            visibleOverlay.TypeOObject = parent;
+            visibleOverlay.Component = visibleComponent;
+            var hiddenOverlay = parent.Drawables.Create<Debug2DDrawable>();
+            hiddenOverlay.TypeOObject = child;
+            hiddenOverlay.Component = hiddenComponent;
+
+            var picked = SelectionController2DDrawable.PickTopMost(
+                new[] { visibleOverlay, hiddenOverlay },
+                new Vec2(135, 205));
+
+            Assert.Same(visibleOverlay, picked);
+        }
+
+        private static void SetParentComponent(TypeD.Models.Data.Component component, TypeD.Models.Data.Component parent)
+        {
+            typeof(TypeD.Models.Data.Component)
+                .GetProperty(nameof(TypeD.Models.Data.Component.ParentComponent))
+                .GetSetMethod(true)
+                .Invoke(component, new object[] { parent });
+        }
+
+        private static void AssertPoint(Vec2 expected, Vec2 actual)
+        {
+            Assert.Equal(expected.X, actual.X, 5);
+            Assert.Equal(expected.Y, actual.Y, 5);
+        }
+
+        [Fact]
+        public void ChildModelMatrix_RefreshesWhenParentChanges()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Position = new Vec2(100, 200);
+            var child = parent.CreateChild();
+            child.Position = new Vec2(5, 6);
+            child.Size = Vec2.One;
+
+            Assert.Equal(new Vec2(105, 206), child.ScreenBounds.Pos);
+            parent.Position = new Vec2(200, 300);
+            Assert.Equal(new Vec2(205, 306), child.ScreenBounds.Pos);
+        }
+
+        [Fact]
+        public void WorldDeltaToLocal_AccountsForParentScaleAndRotation()
+        {
+            var parent = StartScene().Entities.Create<Box>();
+            parent.Scale = new Vec2(2, 3);
+            parent.Rotation = 90;
+
+            var localDelta = parent.WorldDeltaToLocal(new Vec2(-18, 10));
+
+            Assert.Equal(5, localDelta.X, 5);
+            Assert.Equal(6, localDelta.Y, 5);
         }
 
         [Fact]

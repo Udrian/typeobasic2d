@@ -2,6 +2,7 @@
 using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 
 namespace TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives
@@ -26,7 +27,7 @@ namespace TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives
         /// <inheritdoc/>
         public override void Draw(ICanvas canvas)
         {
-            canvas.DrawCircle(BoundingBox, Filled, Color);
+            canvas.DrawCircle(BoundingBox, Filled, Color, Parent as Entity2d);
         }
 
         /// <inheritdoc/>

@@ -167,31 +167,40 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
         /// <summary>
         /// Picks the node to select at a point: the hit node with the highest draw order wins; nodes without a
-        /// draw order (entities) fall back to the hierarchy, where the innermost node wins.
+        /// draw order (entities) fall back to the hierarchy, where the innermost node wins. Hidden descendants
+        /// resolve to their nearest visible ancestor.
         /// </summary>
         /// <param name="drawables">The editor overlays in hierarchy order (parents before children).</param>
         /// <param name="point">The world point to test.</param>
         /// <returns>The topmost overlay at the point, or <c>null</c> if there is none.</returns>
         public static Debug2DDrawable PickTopMost(IEnumerable<Debug2DDrawable> drawables, Vec2 point)
         {
+            var overlays = drawables.ToList();
             Debug2DDrawable best = null;
             var bestHasOrder = false;
             var bestOrder = int.MinValue;
 
-            foreach (var drawable in drawables)
+            foreach (var drawable in overlays)
             {
                 if (drawable.Component == null || !drawable.ContainsPoint(point))
                     continue;
 
-                var hasOrder = drawable.TypeOObject is Drawable2d;
-                var order = hasOrder ? ((Drawable2d)drawable.TypeOObject).DrawOrder : 0;
+                var visibleComponent = VisibleComponent(drawable.Component);
+                var selectable = ReferenceEquals(visibleComponent, drawable.Component)
+                    ? drawable
+                    : overlays.FirstOrDefault(candidate => ReferenceEquals(candidate.Component, visibleComponent));
+                if (selectable == null)
+                    continue;
+
+                var hasOrder = selectable.TypeOObject is Drawable2d;
+                var order = hasOrder ? ((Drawable2d)selectable.TypeOObject).DrawOrder : 0;
 
                 // Later entries are deeper in the hierarchy, so >= makes the innermost win on equal draw order
                 if (best == null
                     || (hasOrder && (!bestHasOrder || order >= bestOrder))
                     || (!hasOrder && !bestHasOrder))
                 {
-                    best = drawable;
+                    best = selectable;
                     bestHasOrder = hasOrder;
                     bestOrder = order;
                 }
@@ -270,9 +279,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     var yEnd = center + new Vec2(0, -GizmoLength * UnitsPerPixel);
                     isDraggingX = DistanceToSegment(mousePos, center, xEnd) <= HandleRadius * UnitsPerPixel;
                     isDraggingY = !isDraggingX && DistanceToSegment(mousePos, center, yEnd) <= HandleRadius * UnitsPerPixel;
-                    // Anywhere inside the combined selection bounds starts moving the selection
-                    insideSelection = mousePos.X >= combined.Pos.X && mousePos.X <= combined.Pos.X + combined.Size.X
-                        && mousePos.Y >= combined.Pos.Y && mousePos.Y <= combined.Pos.Y + combined.Size.Y;
+                    insideSelection = selected.Any(drawable => drawable.ContainsPoint(mousePos));
                 }
 
                 if (isDraggingX || isDraggingY || insideSelection)
@@ -465,7 +472,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     delta = new Vec2(0, delta.Y);
 
                 foreach (var item in DragItems)
-                    item.Drawable.SetObjectPosition(item.StartPosition + delta);
+                    item.Drawable.SetObjectPosition(item.StartPosition + item.Drawable.GetObjectLocalDelta(delta));
             }
             else if (DragTool == EditorTool.Resize)
             {
@@ -506,7 +513,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                         (item.StartBoundsPos.X - DragStartCombined.Pos.X) * scale.X,
                         (item.StartBoundsPos.Y - DragStartCombined.Pos.Y) * scale.Y);
                     var boundsDelta = newBoundsPos - item.StartBoundsPos;
-                    item.Drawable.SetObjectPosition(item.StartPosition + boundsDelta);
+                    item.Drawable.SetObjectPosition(item.StartPosition + item.Drawable.GetObjectLocalDelta(boundsDelta));
                     item.Drawable.SetObjectSize(new Vec2(
                         Math.Max(MinimumSize, item.StartSize.X * scale.X),
                         Math.Max(MinimumSize, item.StartSize.Y * scale.Y)));
@@ -514,15 +521,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
             else if (DragTool == EditorTool.Origin && DragItems[0].Drawable.TypeOObject is Drawable2d drawable)
             {
-                var boundingBox = drawable.BoundingBox;
-                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
-                var screenBoundingBoxPos = boundingBox.Pos + parentPosition;
-
-                // Convert to normalized origin coordinates (0 to 1 is within bounds, can be outside)
-                var relativePos = mousePos - screenBoundingBoxPos;
-                PreviewOrigin = new Vec2(
-                    boundingBox.Size.X > 0 ? relativePos.X / boundingBox.Size.X : 0,
-                    boundingBox.Size.Y > 0 ? relativePos.Y / boundingBox.Size.Y : 0);
+                PreviewOrigin = drawable.GetOriginAtWorldPosition(mousePos);
             }
             else if (DragTool == EditorTool.Rotate)
             {

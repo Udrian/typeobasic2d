@@ -53,8 +53,8 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 CircleFillPrimitive.Vertices[fillIndex + 2] = new Vertex(nextPoint);
             }
 
-            var position = (center + anchor?.Position) ?? center;
-            ActivateShader(tkCanvas.Shader, tkCanvas, position, 0, color);
+            var position = center + GetAnchorOffset(anchor);
+            ActivateShader(tkCanvas.Shader, tkCanvas, position, 0, color, anchor: anchor);
             if (filled)
                 CircleFillPrimitive.Draw();
             else

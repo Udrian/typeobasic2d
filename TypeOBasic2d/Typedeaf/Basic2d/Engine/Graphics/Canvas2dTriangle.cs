@@ -62,8 +62,8 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 TriangleFillPrimitive.Vertices[i] = vertex;
             }
 
-            pos = (pos + anchor?.Position) ?? pos;
-            ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin);
+            pos += GetAnchorOffset(anchor);
+            ActivateShader(tkCanvas.Shader, tkCanvas, pos, rotation, color, origin, anchor);
             if (filled)
                 TriangleFillPrimitive.Draw();
             else

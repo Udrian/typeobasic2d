@@ -100,9 +100,41 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// <returns><c>true</c> if the point is inside the area; otherwise <c>false</c>.</returns>
         public bool ContainsPoint(Vec2 point)
         {
-            var (pos, size) = GetBounds();
-            return point.X >= pos.X && point.X <= pos.X + size.X
-                && point.Y >= pos.Y && point.Y <= pos.Y + size.Y;
+            var (topLeft, topRight, bottomRight, bottomLeft) = GetWorldCorners();
+            var corners = new[] { topLeft, topRight, bottomRight, bottomLeft };
+            var area = 0.0;
+            var hasPositiveCross = false;
+            var hasNegativeCross = false;
+
+            for (var i = 0; i < corners.Length; i++)
+            {
+                var start = corners[i];
+                var end = corners[(i + 1) % corners.Length];
+                var edgeX = end.X - start.X;
+                var edgeY = end.Y - start.Y;
+                var pointX = point.X - start.X;
+                var pointY = point.Y - start.Y;
+                var cross = edgeX * pointY - edgeY * pointX;
+                area += start.X * end.Y - start.Y * end.X;
+
+                if (Math.Abs(cross) <= 1e-8
+                    && pointX * (point.X - end.X) + pointY * (point.Y - end.Y) <= 1e-8)
+                {
+                    return true;
+                }
+
+                hasPositiveCross |= cross > 0;
+                hasNegativeCross |= cross < 0;
+            }
+
+            if (Math.Abs(area) <= 1e-8)
+            {
+                var (pos, size) = GetBounds();
+                return point.X >= pos.X && point.X <= pos.X + size.X
+                    && point.Y >= pos.Y && point.Y <= pos.Y + size.Y;
+            }
+
+            return !(hasPositiveCross && hasNegativeCross);
         }
 
         /// <summary>
@@ -111,12 +143,10 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// <returns>The top-left position and the size of the area.</returns>
         public (Vec2 Pos, Vec2 Size) GetBounds()
         {
+            if (TypeOObject is Entity2d entity)
+                return (entity.ScreenBounds.Pos, entity.ScreenBounds.Size);
             if (TypeOObject is Drawable2d drawable)
-            {
-                var boundingBox = drawable.BoundingBox;
-                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
-                return (boundingBox.Pos + parentPosition, boundingBox.Size);
-            }
+                return (drawable.WorldBounds.Pos, drawable.WorldBounds.Size);
             return (GetPos(), Size);
         }
 
@@ -128,13 +158,23 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (Lines == null)
                 return;
 
-            var (pos, size) = GetBounds();
+            var (topLeft, topRight, bottomRight, bottomLeft) = GetWorldCorners();
+            Lines[0] = topLeft;
+            Lines[1] = topRight;
+            Lines[2] = bottomRight;
+            Lines[3] = bottomLeft;
+            Lines[4] = topLeft;
+        }
 
-            Lines[0] = pos;
-            Lines[1] = pos + new Vec2(size.X, 0);
-            Lines[2] = pos + size;
-            Lines[3] = pos + new Vec2(0, size.Y);
-            Lines[4] = pos;
+        private (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetWorldCorners()
+        {
+            if (TypeOObject is Entity2d entity)
+                return entity.WorldCorners;
+            if (TypeOObject is Drawable2d drawable)
+                return drawable.WorldCorners;
+
+            var (pos, size) = GetBounds();
+            return (pos, pos + new Vec2(size.X, 0), pos + size, pos + new Vec2(0, size.Y));
         }
 
         private bool IsVisibleForDisplayMode(IEditorToolModel display)
@@ -229,10 +269,19 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         internal Vec2 GetObjectPivot()
         {
             if (TypeOObject is Entity2d entity)
-                return entity.Position + ((entity.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero);
+                return entity.WorldPosition;
             if (TypeOObject is Drawable2d drawable)
-                return drawable.Position + ((drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero);
+                return drawable.WorldPosition;
             return Position;
+        }
+
+        internal Vec2 GetObjectLocalDelta(Vec2 worldDelta)
+        {
+            if (TypeOObject is Entity2d entity && entity.Parent is Entity2d entityParent)
+                return entityParent.WorldDeltaToLocal(worldDelta);
+            if (TypeOObject is Drawable2d drawable)
+                return drawable.WorldDeltaToLocal(worldDelta);
+            return worldDelta;
         }
 
         private Vec2 GetPos()
@@ -240,10 +289,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (TypeOObject is Entity2d entity)
                 return entity.ScreenBounds.Pos;
             if (TypeOObject is Drawable2d drawable)
-            {
-                var parentPosition = (drawable.Parent as Entity2d)?.ScreenBounds.Pos ?? Vec2.Zero;
-                return drawable.Position + parentPosition;
-            }
+                return drawable.WorldBounds.Pos;
 
             return Position;
         }

@@ -39,7 +39,7 @@ public class ComponentBaseTypeTests
     }
 
     [Theory]
-    [InlineData("Entity2d", false, true)]
+    [InlineData("Entity2d", true, true)]
     [InlineData("Drawable2d", false, true)]
     public void ChildFilter_AcceptsExpectedRootTypes(string name, bool acceptsEntity, bool acceptsDrawable)
     {
@@ -58,9 +58,11 @@ public class ComponentBaseTypeTests
         Basic2dComponent.Entity2dComponent().Template.ChildrenFilter(filter);
 
         var derivedDrawable = Derive("Sprite", Basic2dComponent.DrawableTextureComponent());
+        var derivedEntity = Derive("ChildEntity", Basic2dComponent.Entity2dComponent());
         var derivedScene = Derive("Level", CoreComponent.SceneComponent());
 
         Assert.Contains($"{derivedDrawable.RootBaseComponent.FullName};", filter.Filters);
+        Assert.Contains($"{derivedEntity.RootBaseComponent.FullName};", filter.Filters);
         Assert.DoesNotContain($"{derivedScene.RootBaseComponent.FullName};", filter.Filters);
     }
 

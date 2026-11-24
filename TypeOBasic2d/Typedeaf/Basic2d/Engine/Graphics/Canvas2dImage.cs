@@ -36,7 +36,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
             if (canvas is TKCanvas tkCanvas && texture is TKTexture tkTexture)
             {
                 var imagePosition = pos;
-                var offset = anchor?.Position ?? Vec2.Zero;
+                var offset = GetAnchorOffset(anchor);
                 pos += offset;
 
                 TexturedPrimitive.PrimitiveDrawType = PrimitiveDrawType.Triangle;
@@ -45,7 +45,7 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 if (source.HasValue && !ApplySourceClip(TexturedPrimitive, imagePosition, imageSize, source.Value))
                     return;
 
-                ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White, origin);
+                ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White, origin, anchor);
                 tkTexture.Use();
                 
                 // Apply flipping by modifying texture coordinates

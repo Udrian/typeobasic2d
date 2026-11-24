@@ -2,6 +2,7 @@
 using TypeOEngine.Typedeaf.Core.Attributes;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 
 namespace TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives
@@ -28,7 +29,7 @@ namespace TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives
         {
             var scaledSize = Size * Scale;
             var position = Position - scaledSize * Origin;
-            canvas.DrawTriangle(position, scaledSize, Filled, Color, Rotation, scaledSize * Origin);
+            canvas.DrawTriangle(position, scaledSize, Filled, Color, Rotation, scaledSize * Origin, Parent as Entity2d);
         }
 
         /// <inheritdoc/>

@@ -26,9 +26,9 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         {
             if (canvas is TKCanvas tkCanvas)
             {
-                var pos = (point + anchor?.Position) ?? point;
+                var pos = point + GetAnchorOffset(anchor);
                 PixelPrimitive.Vertices[0].Position = new Vec3(pos);
-                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color);
+                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
 
                 PixelPrimitive.Draw();
             }
@@ -54,11 +54,11 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                 int i = 0;
                 foreach(var point in points)
                 {
-                    var pos = (point + anchor?.Position) ?? point;
+                    var pos = point + GetAnchorOffset(anchor);
                     pixelPrimitive.Vertices[i].Position = new Vec3(pos);
                     i++;
                 }
-                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color);
+                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
 
                 pixelPrimitive.Draw();
             }

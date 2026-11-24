@@ -28,10 +28,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         {
             if (canvas is TKCanvas tkCanvas)
             {
-                pos = (pos + anchor?.Position) ?? pos;
+                pos += GetAnchorOffset(anchor);
                 LinePrimitive.Vertices[0].Position = new Vec3(pos);
                 LinePrimitive.Vertices[1].Position = new Vec3(pos + size);
-                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color);
+                ActivateShader(tkCanvas.Shader, tkCanvas, Vec2.Zero, 0, color, anchor: anchor);
 
                 LinePrimitive.Draw();
             }
