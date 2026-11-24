@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics.Primitives;
@@ -24,6 +25,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="anchor">Transform position anchor</param>
         public static void DrawPixel(this ICanvas canvas, Vec2 point, Color color, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawPixel(point, color, anchor)))
+                return;
+
+            CanvasDrawCommandQueue.FlushPendingBatch();
             if (canvas is TKCanvas tkCanvas)
             {
                 var pos = point + GetAnchorOffset(anchor);
@@ -45,6 +50,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="anchor">Transform position anchor</param>
         public static void DrawPixels(this ICanvas canvas, List<Vec2> points, Color color, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawPixels(new List<Vec2>(points), color, anchor)))
+                return;
+
+            CanvasDrawCommandQueue.FlushPendingBatch();
             if (canvas is TKCanvas tkCanvas)
             {
                 if(!MultiPixelPrimitive.ContainsKey(points.Count))

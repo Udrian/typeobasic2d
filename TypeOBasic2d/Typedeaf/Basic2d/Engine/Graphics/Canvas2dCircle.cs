@@ -1,4 +1,5 @@
 ﻿using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics.Primitives;
@@ -30,6 +31,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="anchor">Transform position anchor.</param>
         public static void DrawCircle(this ICanvas canvas, Rectangle bounds, bool filled, Color color, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawCircle(bounds, filled, color, anchor)))
+                return;
+
+            CanvasDrawCommandQueue.FlushPendingBatch();
             if (canvas is not TKCanvas tkCanvas)
                 return;
 

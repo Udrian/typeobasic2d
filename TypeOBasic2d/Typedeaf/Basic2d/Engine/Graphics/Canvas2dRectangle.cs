@@ -1,5 +1,7 @@
-﻿using TypeOEngine.Typedeaf.Core.Common;
+﻿using System.Runtime.CompilerServices;
+using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics.Primitives;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Interfaces;
@@ -12,6 +14,8 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
     public static partial class Canvas2d
     {
         internal static RectanglePrimitive RectanglePrimitive { get; private set; } = new RectanglePrimitive();
+        private static readonly ConditionalWeakTable<TKCanvas, Canvas2dRectangleBatcher> RectangleBatchers = new();
+        private static readonly Action<object, IReadOnlyList<RectangleBatchCommand>> FlushRectangleBatch = DrawRectangleBatch;
 
         /// <summary>
         /// Draws a rectangle
@@ -55,8 +59,19 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="origin">Local position to rotate around.</param>
         public static void DrawRectangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation, Vec2? origin, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawRectangle(pos, size, filled, color, rotation, origin, anchor)))
+                return;
+
             if (canvas is TKCanvas tkCanvas)
             {
+                if (filled && rotation == 0 && origin == null && anchor == null
+                    && CanvasDrawCommandQueue.TryEnqueueBatch(
+                        tkCanvas,
+                        new RectangleBatchCommand(pos, size, color),
+                        FlushRectangleBatch))
+                    return;
+
+                CanvasDrawCommandQueue.FlushPendingBatch();
                 pos += GetAnchorOffset(anchor);
                 DrawWithEntityClipping(canvas, anchor, () =>
                 {
@@ -66,6 +81,13 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                     RectanglePrimitive.Draw();
                 });
             }
+        }
+
+        private static void DrawRectangleBatch(object canvas, IReadOnlyList<RectangleBatchCommand> rectangles)
+        {
+            var tkCanvas = (TKCanvas)canvas;
+            RectangleBatchers.GetValue(tkCanvas, static _ => new Canvas2dRectangleBatcher())
+                .Draw(tkCanvas, rectangles);
         }
 
         /// <summary>

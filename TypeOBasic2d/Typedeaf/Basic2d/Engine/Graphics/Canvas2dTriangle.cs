@@ -1,4 +1,5 @@
 ﻿using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics.Primitives;
@@ -45,6 +46,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="origin">Local position to rotate around.</param>
         public static void DrawTriangle(this ICanvas canvas, Vec2 pos, Vec2 size, bool filled, Color color, double rotation, Vec2? origin, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawTriangle(pos, size, filled, color, rotation, origin, anchor)))
+                return;
+
+            CanvasDrawCommandQueue.FlushPendingBatch();
             if (canvas is not TKCanvas tkCanvas)
                 return;
 

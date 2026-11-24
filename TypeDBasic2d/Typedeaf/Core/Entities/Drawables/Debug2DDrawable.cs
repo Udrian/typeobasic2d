@@ -101,15 +101,26 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         public bool ContainsPoint(Vec2 point)
         {
             var (topLeft, topRight, bottomRight, bottomLeft) = GetWorldCorners();
-            var corners = new[] { topLeft, topRight, bottomRight, bottomLeft };
             var area = 0.0;
             var hasPositiveCross = false;
             var hasNegativeCross = false;
 
-            for (var i = 0; i < corners.Length; i++)
+            for (var i = 0; i < 4; i++)
             {
-                var start = corners[i];
-                var end = corners[(i + 1) % corners.Length];
+                var start = i switch
+                {
+                    0 => topLeft,
+                    1 => topRight,
+                    2 => bottomRight,
+                    _ => bottomLeft
+                };
+                var end = i switch
+                {
+                    0 => topRight,
+                    1 => bottomRight,
+                    2 => bottomLeft,
+                    _ => topLeft
+                };
                 var edgeX = end.X - start.X;
                 var edgeY = end.Y - start.Y;
                 var pointX = point.X - start.X;

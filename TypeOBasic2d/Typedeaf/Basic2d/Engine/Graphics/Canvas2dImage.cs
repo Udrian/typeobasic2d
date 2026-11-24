@@ -2,6 +2,7 @@
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine.Contents;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Entities;
 using TypeOEngine.Typedeaf.TK.Contents;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
@@ -33,6 +34,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="anchor">Transform position anchor</param>
         public static void DrawImage(this ICanvas canvas, Texture texture, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawImage(texture, pos, scale, rotation, origin, color, flipped, source, anchor)))
+                return;
+
+            CanvasDrawCommandQueue.FlushPendingBatch();
             if (canvas is TKCanvas tkCanvas && texture is TKTexture tkTexture)
             {
                 var imagePosition = pos;

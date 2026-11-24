@@ -148,8 +148,16 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 DrawRectangle(canvas, Normalized(BoxStart, mousePos), Color.White);
 
             // The selection bounding box and the tool gizmos stay visible even when bounding boxes are hidden
-            var selected = drawables.Where(d => d.Focused).ToList();
-            if (selected.Count == 0)
+            List<Debug2DDrawable> selected = null;
+            foreach(var drawable in drawables)
+            {
+                if (!drawable.Focused)
+                    continue;
+
+                selected ??= new List<Debug2DDrawable>();
+                selected.Add(drawable);
+            }
+            if (selected == null)
                 return;
 
             var combined = CombinedBounds(selected);
@@ -175,7 +183,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// <returns>The topmost overlay at the point, or <c>null</c> if there is none.</returns>
         public static Debug2DDrawable PickTopMost(IEnumerable<Debug2DDrawable> drawables, Vec2 point)
         {
-            var overlays = drawables.ToList();
+            var overlays = drawables as IReadOnlyList<Debug2DDrawable> ?? drawables.ToList();
             Debug2DDrawable best = null;
             var bestHasOrder = false;
             var bestOrder = int.MinValue;

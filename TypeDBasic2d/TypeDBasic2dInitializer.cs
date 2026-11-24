@@ -25,6 +25,8 @@ namespace TypeDBasic2d
         // Data
         Project Project { get; set; }
         Dictionary<string, Debug2DDrawable> DebugDrawablesMap { get; set; }
+        Dictionary<object, string> DebugDrawableKeys { get; set; }
+        List<Debug2DDrawable> DebugDrawablesSnapshot { get; set; }
         SelectionController2DDrawable SelectionController { get; set; }
         List<Component> SelectedComponents { get; set; } = new List<Component>();
 
@@ -43,6 +45,7 @@ namespace TypeDBasic2d
 
             // Data
             DebugDrawablesMap = new Dictionary<string, Debug2DDrawable>();
+            DebugDrawableKeys = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
 
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Entity2dComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Drawable2dComponent());
@@ -101,7 +104,7 @@ namespace TypeDBasic2d
                 SelectionController.HookModel = HookModel;
                 SelectionController.EditorToolModel = EditorToolModel;
                 SelectionController.EditorCommandRegistry = EditorCommandRegistry;
-                SelectionController.GetDebugDrawables = () => DebugDrawablesMap.Values.ToList();
+                SelectionController.GetDebugDrawables = GetDebugDrawablesSnapshot;
             }
 
             Vec2 position = hook.Component.Properties.FirstOrDefault(p => p.Name == "Position")?.ToValue<Vec2>() ?? Vec2.Zero;
@@ -113,8 +116,11 @@ namespace TypeDBasic2d
             drawable.Position = position;
             drawable.Size = size;
             drawable.UpdateLines();
-            DebugDrawablesMap.Add(hook.Component.FullParentPath + hook.Component.ID, drawable);
-            UpdateSelectionRoles();
+            var key = hook.Component.FullParentPath + hook.Component.ID;
+            DebugDrawablesMap.Add(key, drawable);
+            DebugDrawableKeys.Add(hook.TypeOObject, key);
+            DebugDrawablesSnapshot = null;
+            UpdateSelectionRole(drawable);
         }
 
         internal void RemoveDebugDrawableComponent(TypeOObjectRemovedFromViewHook hook)
@@ -123,13 +129,13 @@ namespace TypeDBasic2d
                 or TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables.Drawable2d))
                 return;
 
-            // Deferred removal runs after the component may have been detached or reparented.
-            var entry = DebugDrawablesMap.FirstOrDefault(pair => ReferenceEquals(pair.Value.TypeOObject, hook.TypeOObject));
-            if (entry.Value != null)
+            if (DebugDrawableKeys.TryGetValue(hook.TypeOObject, out var key)
+                && DebugDrawablesMap.TryGetValue(key, out var drawable))
             {
-                var drawable = entry.Value;
                 hook.Context.Game.Scenes.CurrentScene.Drawables.Destroy(drawable);
-                DebugDrawablesMap.Remove(entry.Key);
+                DebugDrawablesMap.Remove(key);
+                DebugDrawableKeys.Remove(hook.TypeOObject);
+                DebugDrawablesSnapshot = null;
             }
         }
 
@@ -148,7 +154,14 @@ namespace TypeDBasic2d
         private void ClearDebugDrawablesMap()
         {
             DebugDrawablesMap.Clear();
+            DebugDrawableKeys.Clear();
+            DebugDrawablesSnapshot = null;
             SelectionController = null;
+        }
+
+        private IReadOnlyList<Debug2DDrawable> GetDebugDrawablesSnapshot()
+        {
+            return DebugDrawablesSnapshot ??= DebugDrawablesMap.Values.ToList();
         }
 
         internal void ComponentPropertyChanged(PropertyChangedHook hook)
@@ -216,21 +229,51 @@ namespace TypeDBasic2d
 
         private void UpdateSelectionRoles()
         {
+            var selected = new HashSet<Component>(SelectedComponents, ReferenceEqualityComparer.Instance);
+            var parentsOfSelected = new HashSet<Component>(ReferenceEqualityComparer.Instance);
+            foreach(var component in selected)
+                for(var parent = component?.ParentComponent; parent != null; parent = parent.ParentComponent)
+                    parentsOfSelected.Add(parent);
+
             foreach (var drawable in DebugDrawablesMap.Values)
             {
-                drawable.Focused = SelectedComponents.Any(c => ReferenceEquals(c, drawable.Component));
-                drawable.IsParentOfSelected = !drawable.Focused && SelectedComponents.Any(c => IsAncestorOf(drawable.Component, c));
-                drawable.IsChildOfSelected = !drawable.Focused && SelectedComponents.Any(c => IsAncestorOf(c, drawable.Component));
+                UpdateSelectionRole(drawable, selected, parentsOfSelected);
             }
+        }
+
+        private void UpdateSelectionRole(Debug2DDrawable drawable)
+        {
+            drawable.Focused = SelectedComponents.Any(component => ReferenceEquals(component, drawable.Component));
+            drawable.IsParentOfSelected = !drawable.Focused
+                && SelectedComponents.Any(component => IsAncestorOf(drawable.Component, component));
+            drawable.IsChildOfSelected = !drawable.Focused
+                && SelectedComponents.Any(component => IsAncestorOf(component, drawable.Component));
+        }
+
+        private static void UpdateSelectionRole(
+            Debug2DDrawable drawable,
+            HashSet<Component> selected,
+            HashSet<Component> parentsOfSelected)
+        {
+            drawable.Focused = selected.Contains(drawable.Component);
+            drawable.IsParentOfSelected = !drawable.Focused && parentsOfSelected.Contains(drawable.Component);
+            drawable.IsChildOfSelected = !drawable.Focused
+                && HasSelectedAncestor(drawable.Component, selected);
+        }
+
+        private static bool HasSelectedAncestor(Component component, HashSet<Component> selected)
+        {
+            for(var parent = component?.ParentComponent; parent != null; parent = parent.ParentComponent)
+                if(selected.Contains(parent))
+                    return true;
+            return false;
         }
 
         private static bool IsAncestorOf(Component ancestor, Component node)
         {
-            for (var parent = node?.ParentComponent; parent != null; parent = parent.ParentComponent)
-            {
-                if (ReferenceEquals(parent, ancestor))
+            for(var parent = node?.ParentComponent; parent != null; parent = parent.ParentComponent)
+                if(ReferenceEquals(parent, ancestor))
                     return true;
-            }
             return false;
         }
     }

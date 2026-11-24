@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics;
 using TypeOEngine.Typedeaf.TK.Engine.Graphics.Primitives;
@@ -14,6 +16,8 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
     public static partial class Canvas2d
     {
         internal static Primitive<Vertex> LinePrimitive { get; private set; } = new Primitive<Vertex>(2, PrimitiveDrawType.Line);
+        private static readonly ConditionalWeakTable<TKCanvas, Canvas2dLineBatcher> LineBatchers = new();
+        private static readonly Action<object, IReadOnlyList<LineBatchCommand>> FlushLineBatch = DrawLineBatch;
 
         /// <summary>
         /// Draws a line given a position and a size
@@ -26,8 +30,19 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <exception cref="NotImplementedException"></exception>
         public static void DrawLine(this ICanvas canvas, Vec2 pos, Vec2 size, Color color, IAnchor2d anchor = null)
         {
+            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawLine(pos, size, color, anchor)))
+                return;
+
             if (canvas is TKCanvas tkCanvas)
             {
+                if (anchor == null
+                    && CanvasDrawCommandQueue.TryEnqueueBatch(
+                        tkCanvas,
+                        new LineBatchCommand(pos, pos + size, color),
+                        FlushLineBatch))
+                    return;
+
+                CanvasDrawCommandQueue.FlushPendingBatch();
                 pos += GetAnchorOffset(anchor);
                 DrawWithEntityClipping(canvas, anchor, () =>
                 {
@@ -37,6 +52,15 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                     LinePrimitive.Draw();
                 });
             }
+            else
+                CanvasDrawCommandQueue.FlushPendingBatch();
+        }
+
+        private static void DrawLineBatch(object canvas, IReadOnlyList<LineBatchCommand> lines)
+        {
+            var tkCanvas = (TKCanvas)canvas;
+            LineBatchers.GetValue(tkCanvas, static _ => new Canvas2dLineBatcher())
+                .Draw(tkCanvas, lines);
         }
 
         /// <summary>
@@ -62,7 +86,21 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <exception cref="NotImplementedException"></exception>
         public static void DrawLines(this ICanvas canvas, List<Vec2> points, Color color, IAnchor2d anchor = null)
         {
-            if(points.Count == 0) return;
+            if (points.Count == 0)
+                return;
+
+            if (CanvasDrawCommandQueue.IsRecording)
+            {
+                var snapshot = points.ToArray();
+                if (CanvasDrawCommandQueue.TryEnqueue(() => DrawLinesCore(canvas, snapshot, color, anchor)))
+                    return;
+            }
+
+            DrawLinesCore(canvas, points, color, anchor);
+        }
+
+        private static void DrawLinesCore(ICanvas canvas, IReadOnlyList<Vec2> points, Color color, IAnchor2d anchor)
+        {
             if (points.Count == 1)
             {
                 DrawLineA(canvas, points[0], points[0], color, anchor);

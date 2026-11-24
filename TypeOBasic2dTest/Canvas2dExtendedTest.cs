@@ -2,6 +2,9 @@ using OpenTK.Graphics.OpenGL4;
 using TypeOBasic2dTest.TypeTest;
 using TypeOEngine.Typedeaf.Basic2d.Engine.Graphics;
 using TypeOEngine.Typedeaf.Core.Common;
+using TypeOEngine.Typedeaf.Core;
+using TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces;
+using TypeOEngine.Typedeaf.Core.Entities.Interfaces;
 using TypeOEngine.Typedeaf.Core.Engine.Contents.ContentExtensions;
 using TypeOEngine.Typedeaf.TK.Contents;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
@@ -14,6 +17,181 @@ namespace TypeOBasic2dTest
     {
         private static readonly string TexturePath = Path.Combine("Mock", "Resources", "texture.png");
         private static readonly string FontPath = Path.Combine("Mock", "Resources", "Lato-Black.ttf");
+
+        private sealed class BatchingScene : Scene
+        {
+            public override void Update(double dt) { }
+            public override void Draw() { }
+            protected override void Cleanup() { }
+            public override void OnExit(Scene to) { }
+            public override void OnEnter(Scene from) { }
+        }
+
+        private sealed class RectangleDrawable : IDrawable
+        {
+            private readonly Vec2 _position;
+            private readonly Vec2 _size;
+            private readonly Color _color;
+
+            public bool Hidden { get; set; }
+            public int DrawOrder { get; set; }
+
+            public RectangleDrawable(Vec2 position, Vec2 size, Color color, int drawOrder)
+            {
+                _position = position;
+                _size = size;
+                _color = color;
+                DrawOrder = drawOrder;
+            }
+
+            public void Draw(ICanvas canvas)
+            {
+                canvas.DrawRectangle(_position, _size, true, _color);
+            }
+
+            public int CompareTo(IDrawable other)
+            {
+                return DrawOrder.CompareTo(other?.DrawOrder ?? int.MinValue);
+            }
+        }
+
+        private sealed class CircleDrawable : IDrawable
+        {
+            public bool Hidden { get; set; }
+            public int DrawOrder { get; set; } = 1;
+
+            public void Draw(ICanvas canvas)
+            {
+                canvas.DrawCircle(new Rectangle(new Vec2(20), new Vec2(30)), true, Color.Blue);
+            }
+
+            public int CompareTo(IDrawable other)
+            {
+                return DrawOrder.CompareTo(other?.DrawOrder ?? int.MinValue);
+            }
+        }
+
+        private sealed class PolylineDrawable : IDrawable
+        {
+            private readonly List<Vec2> _points;
+            private readonly Color _color;
+
+            public bool Hidden { get; set; }
+            public int DrawOrder { get; set; }
+
+            public PolylineDrawable(Vec2 topLeft, Vec2 size, Color color, int drawOrder)
+            {
+                var topRight = topLeft + new Vec2(size.X, 0);
+                var bottomRight = topLeft + size;
+                var bottomLeft = topLeft + new Vec2(0, size.Y);
+                _points = new List<Vec2> { topLeft, topRight, bottomRight, bottomLeft, topLeft };
+                _color = color;
+                DrawOrder = drawOrder;
+            }
+
+            public void Draw(ICanvas canvas)
+            {
+                canvas.DrawLines(_points, _color);
+            }
+
+            public int CompareTo(IDrawable other)
+            {
+                return DrawOrder.CompareTo(other?.DrawOrder ?? int.MinValue);
+            }
+        }
+
+        [Fact]
+        public void DrawStackBatchesAdjacentFilledRectanglesAndFlushesBeforeOtherCanvasOperations()
+        {
+            var typeO = Utility.DrawTest(context =>
+            {
+                var canvas = context.Game.Scenes.Canvas;
+                var scene = context.Game.Scenes.SetScene<BatchingScene>();
+                scene.DrawStack.Push(new RectangleDrawable(new Vec2(10), new Vec2(30), Color.Red, 0));
+                scene.DrawStack.Push(new CircleDrawable());
+                scene.DrawStack.Push(new RectangleDrawable(new Vec2(30), new Vec2(20), Color.Green, 2));
+
+                canvas.Clear(Color.Black);
+                scene.DrawStack.Draw(canvas);
+                scene.DrawStack.Draw(canvas);
+                canvas.Present();
+
+                var texture = canvas.Screenshot();
+                Assert.Equal(Color.Red, texture.PixelAt(15, 15));
+                Assert.Equal(Color.Blue, texture.PixelAt(25, 25));
+                Assert.Equal(Color.Green, texture.PixelAt(35, 35));
+                Assert.Equal(Color.Black, texture.PixelAt(60, 35));
+
+                context.Exit();
+            });
+
+            typeO.Start();
+        }
+
+        [Fact]
+        public void DrawStackBatchesTwentyThousandEditorStyleOutlines()
+        {
+            const int lineCount = 20_000;
+            var typeO = Utility.DrawTest(context =>
+            {
+                var canvas = context.Game.Scenes.Canvas;
+                var scene = context.Game.Scenes.SetScene<BatchingScene>();
+                for(var i = 0; i < lineCount; i++)
+                {
+                    var topLeft = new Vec2(2 + (i % 200) * 3, 2 + (i / 200) * 3);
+                    var color = i == lineCount - 1 ? Color.Red : Color.SkyBlue;
+                    if (i == lineCount - 1)
+                        topLeft = new Vec2(500, 100);
+                    scene.DrawStack.Push(new PolylineDrawable(topLeft, new Vec2(2), color, i));
+                }
+
+                canvas.Clear(Color.Black);
+                scene.DrawStack.Draw(canvas);
+                scene.DrawStack.Draw(canvas);
+                canvas.Present();
+
+                var texture = canvas.Screenshot();
+                Assert.Equal(Color.SkyBlue, texture.PixelAt(3, 2));
+                Assert.Equal(Color.Red, texture.PixelAt(501, 100));
+                Assert.Equal(Color.Black, texture.PixelAt(0, 0));
+                Assert.Equal(Color.Black, texture.PixelAt(639, 319));
+
+                context.Exit();
+            });
+
+            typeO.Start();
+        }
+
+        [Fact]
+        public void DrawStackRendersTwentyThousandRectanglesInLargeBatches()
+        {
+            const int rectangleCount = 20_000;
+            var typeO = Utility.DrawTest(context =>
+            {
+                var canvas = context.Game.Scenes.Canvas;
+                var scene = context.Game.Scenes.SetScene<BatchingScene>();
+                for(var i = 0; i < rectangleCount; i++)
+                {
+                    var position = new Vec2(2 + (i % 200) * 3, 2 + (i / 200) * 3);
+                    scene.DrawStack.Push(new RectangleDrawable(position, new Vec2(2), Color.SkyBlue, i));
+                }
+
+                canvas.Clear(Color.Black);
+                scene.DrawStack.Draw(canvas);
+                scene.DrawStack.Draw(canvas);
+                canvas.Present();
+
+                var texture = canvas.Screenshot();
+                Assert.Equal(Color.SkyBlue, texture.PixelAt(3, 3));
+                Assert.Equal(Color.SkyBlue, texture.PixelAt(600, 300));
+                Assert.Equal(Color.Black, texture.PixelAt(0, 0));
+                Assert.Equal(Color.Black, texture.PixelAt(639, 319));
+
+                context.Exit();
+            });
+
+            typeO.Start();
+        }
 
         [Fact]
         public void DrawRectangleA_FillsAreaBetweenTwoPoints()
