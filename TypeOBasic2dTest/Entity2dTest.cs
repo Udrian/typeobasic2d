@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Concurrent;
 using TypeOEngine.Typedeaf.Core;
 using TypeOEngine.Typedeaf.Core.Common;
 using TypeOEngine.Typedeaf.Core.Engine;
@@ -9,6 +10,21 @@ using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Interfaces;
 using TypeDBasic2d.Typedeaf.Core.Entities.Drawables;
+using TypeDBasic2d.Components;
+using TypeD.Models.Data;
+using TypeD.Models.Data.SaveContexts;
+using TypeD.Models.Interfaces;
+using TypeD.Commands;
+using TypeD.Models.Data.Hooks;
+using TypeDCore.Models.Data.Hooks;
+using TypeDCore.Models.Data;
+using TypeDCore.Models.Interfaces;
+using TypeDCore.Models.Data.SettingContexts;
+using TypeD.Models.Data.SettingContexts;
+using TypeOEngine.Typedeaf.Core.Engine.Services.Input;
+using TypeOEngine.Typedeaf.Desktop.Engine.Hardwares.Interfaces;
+using TypeOEngine.Typedeaf.Desktop.Engine.Services;
+using MouseButton = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
 
 namespace TypeOBasic2dTest
 {
@@ -392,6 +408,872 @@ namespace TypeOBasic2dTest
                 new Vec2(135, 205));
 
             Assert.Same(visibleOverlay, picked);
+        }
+
+        [Theory]
+        [InlineData("Right, Bottom", 40, 20, 10, 20, 80, 40)]
+        [InlineData("Left, Top", -40, -20, -30, 0, 80, 40)]
+        [InlineData("Right", 40, 0, 10, 10, 80, 40)]
+        [InlineData("Top", 0, -20, -10, 0, 80, 40)]
+        public void Resize_ShiftScalesUniformlyAroundOppositeHandle(string axes, double dx, double dy,
+            double x, double y, double width, double height)
+        {
+            var scene = StartScene();
+            var drawable = scene.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(30, 30);
+            drawable.Origin = new Vec2(0.5, 0.5);
+            drawable.Size = new Vec2(40, 20);
+            var overlay = new Debug2DDrawable { TypeOObject = drawable, Component = new Component() };
+            var (controller, model) = BeginResize(new[] { overlay }, axes);
+            model.UniformResizeModifierDown = true;
+
+            UpdateResize(controller, new Vec2(dx, dy));
+
+            AssertPoint(new Vec2(width, height), drawable.Size);
+            AssertPoint(new Vec2(x, y), overlay.GetBounds().Pos);
+        }
+
+        [Fact]
+        public void Resize_ShiftCanBeToggledDuringDrag()
+        {
+            var scene = StartScene();
+            var drawable = scene.Drawables.Create<BoxDrawable>();
+            drawable.Size = new Vec2(40, 20);
+            var overlay = new Debug2DDrawable { TypeOObject = drawable, Component = new Component() };
+            var (controller, model) = BeginResize(new[] { overlay }, "Right, Bottom");
+
+            UpdateResize(controller, new Vec2(40, 0));
+            AssertPoint(new Vec2(80, 20), drawable.Size);
+            model.UniformResizeModifierDown = true;
+            UpdateResize(controller, new Vec2(40, 0));
+            AssertPoint(new Vec2(72, 36), drawable.Size);
+            model.UniformResizeModifierDown = false;
+            UpdateResize(controller, new Vec2(40, 0));
+            AssertPoint(new Vec2(80, 20), drawable.Size);
+        }
+
+        [Fact]
+        public void Resize_ShiftPreservesGroupProportionsAndMinimumSize()
+        {
+            var scene = StartScene();
+            var first = scene.Drawables.Create<BoxDrawable>();
+            first.Size = new Vec2(4, 8);
+            var second = scene.Drawables.Create<BoxDrawable>();
+            second.Position = new Vec2(30, 0);
+            second.Size = new Vec2(20, 10);
+            var overlays = new[] { first, second }
+                .Select(drawable => new Debug2DDrawable { TypeOObject = drawable, Component = new Component() }).ToArray();
+            var (controller, model) = BeginResize(overlays, "Right");
+            model.UniformResizeModifierDown = true;
+
+            UpdateResize(controller, new Vec2(-100, 0));
+
+            AssertPoint(new Vec2(1, 2), first.Size);
+            AssertPoint(new Vec2(5, 2.5), second.Size);
+            AssertPoint(new Vec2(7.5, 3.75), overlays[1].GetBounds().Pos);
+        }
+
+        [Fact]
+        public void Resize_ShiftKeepsRotatedDrawableAnchored()
+        {
+            var scene = StartScene();
+            var drawable = scene.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(50, 50);
+            drawable.Origin = new Vec2(0.5, 0.5);
+            drawable.Size = new Vec2(40, 20);
+            drawable.Rotation = 30;
+            var overlay = new Debug2DDrawable { TypeOObject = drawable, Component = new Component() };
+            var bounds = overlay.GetBounds();
+            var (controller, model) = BeginResize(new[] { overlay }, "Right, Bottom");
+            model.UniformResizeModifierDown = true;
+
+            UpdateResize(controller, bounds.Size);
+
+            AssertPoint(new Vec2(80, 40), drawable.Size);
+            Assert.Equal(bounds.Pos.X, overlay.GetBounds().Pos.X, 4);
+            Assert.Equal(bounds.Pos.Y, overlay.GetBounds().Pos.Y, 4);
+        }
+
+        [Fact]
+        public void Resize_ShiftCommitsEachSelectedComponent()
+        {
+            var scene = StartScene();
+            var overlays = new List<Debug2DDrawable>();
+            for (var i = 0; i < 2; i++)
+            {
+                var drawable = scene.Drawables.Create<BoxDrawable>();
+                drawable.Position = new Vec2(i * 20, 0);
+                drawable.Size = new Vec2(10, 10);
+                var component = new Component();
+                component.Properties.Add(new Property { Name = "Position", Value = drawable.Position });
+                component.Properties.Add(new Property { Name = "Size", Value = drawable.Size });
+                overlays.Add(new Debug2DDrawable { TypeOObject = drawable, Component = component });
+            }
+            var (controller, model) = BeginResize(overlays.ToArray(), "Right");
+            model.UniformResizeModifierDown = true;
+            var submitted = new List<ChangePropertyCommandData>();
+            controller.EditorCommandRegistry = MakeProxy<IEditorCommandRegistry>((method, args) =>
+            {
+                Assert.Equal("Execute", method.Name);
+                submitted.Add((ChangePropertyCommandData)args[1]);
+                return true;
+            });
+
+            UpdateResize(controller, new Vec2(30, 0));
+            typeof(SelectionController2DDrawable).GetMethod("CommitDrag", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(controller, null);
+
+            Assert.Contains(submitted, change => ReferenceEquals(change.Component, overlays[0].Component) && change.Property.Name == "Size");
+            Assert.Contains(submitted, change => ReferenceEquals(change.Component, overlays[1].Component) && change.Property.Name == "Size");
+            Assert.All(submitted, change => Assert.Contains(change.Property, change.Component.Properties));
+        }
+
+        private static (SelectionController2DDrawable Controller, IEditorToolModel Model) BeginResize(
+            Debug2DDrawable[] overlays, string axes)
+        {
+            var modelType = typeof(IEditorToolModel).Assembly.GetType("TypeDCore.Models.EditorToolModel");
+            var model = (IEditorToolModel)Activator.CreateInstance(modelType, true);
+            var controller = new SelectionController2DDrawable { EditorToolModel = model };
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var axesType = typeof(SelectionController2DDrawable).GetNestedType("ResizeAxes", BindingFlags.NonPublic);
+            typeof(SelectionController2DDrawable).GetMethod("BeginDrag", flags).Invoke(controller,
+                new object[] { EditorTool.Resize, overlays, Vec2.Zero, false, false, Enum.Parse(axesType, axes) });
+            return (controller, model);
+        }
+
+        private static void UpdateResize(SelectionController2DDrawable controller, Vec2 delta) =>
+            typeof(SelectionController2DDrawable).GetMethod("UpdateDrag", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(controller, new object[] { delta });
+
+        [Theory]
+        [InlineData(0.5)]
+        [InlineData(2.0)]
+        public void MoveGizmo_CenterMovesSelectionFreelyEvenBetweenObjects(double unitsPerPixel)
+        {
+            var scene = StartScene();
+            var first = scene.Drawables.Create<BoxDrawable>();
+            var second = scene.Drawables.Create<BoxDrawable>();
+            first.Size = second.Size = new Vec2(10, 10);
+            second.Position = new Vec2(100, 0);
+            var overlays = new[] { first, second }.Select(drawable =>
+            {
+                var component = new Component();
+                component.Properties.Add(new Property { Name = "Position", Value = drawable.Position });
+                return new Debug2DDrawable { TypeOObject = drawable, Component = component, Focused = true };
+            }).ToArray();
+            var (controller, input, submissions) = CreateGizmoController(EditorTool.Move, unitsPerPixel);
+            var center = new Vec2(55, 5);
+            var press = center + new Vec2(3 * unitsPerPixel, 0);
+
+            input(true, false);
+            ProcessGizmoPointer(controller, overlays, null, press);
+            input(true, true);
+            ProcessGizmoPointer(controller, overlays, null, press + new Vec2(4, 7));
+            input(false, true);
+            ProcessGizmoPointer(controller, overlays, null, press + new Vec2(4, 7));
+
+            AssertPoint(new Vec2(4, 7), first.Position);
+            AssertPoint(new Vec2(104, 7), second.Position);
+            Assert.Equal(2, submissions.Count);
+            Assert.True(controller.EditorToolModel.TryCapturePointer(this));
+            controller.EditorToolModel.ReleasePointer(this);
+        }
+
+        [Theory]
+        [InlineData(30, 0, 4, 0)]
+        [InlineData(0, -30, 0, 7)]
+        public void MoveGizmo_AxisHandlesRemainConstrained(int x, int y, int expectedX, int expectedY)
+        {
+            var drawable = StartScene().Drawables.Create<BoxDrawable>();
+            drawable.Size = new Vec2(10, 10);
+            var component = new Component();
+            component.Properties.Add(new Property { Name = "Position", Value = Vec2.Zero });
+            var overlay = new Debug2DDrawable { TypeOObject = drawable, Component = component, Focused = true };
+            var (controller, input, _) = CreateGizmoController(EditorTool.Move, 1);
+            var press = new Vec2(5 + x, 5 + y);
+            input(true, false);
+            ProcessGizmoPointer(controller, new[] { overlay }, null, press);
+            input(true, true);
+            ProcessGizmoPointer(controller, new[] { overlay }, null, press + new Vec2(4, 7));
+            input(false, true);
+            ProcessGizmoPointer(controller, new[] { overlay }, null, press + new Vec2(4, 7));
+
+            AssertPoint(new Vec2(expectedX, expectedY), drawable.Position);
+        }
+
+        [Theory]
+        [InlineData(0.5)]
+        [InlineData(2.0)]
+        public void RotateGizmo_RingRotatesAroundPivotEvenOverAnotherObject(double unitsPerPixel)
+        {
+            var scene = StartScene();
+            var drawable = scene.Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(100, 100);
+            drawable.Size = new Vec2(10, 10);
+            var component = new Component();
+            component.Properties.Add(new Property { Name = "Rotation", Value = 0.0 });
+            var overlay = new Debug2DDrawable { TypeOObject = drawable, Component = component, Focused = true };
+            var other = scene.Drawables.Create<BoxDrawable>();
+            var otherOverlay = new Debug2DDrawable { TypeOObject = other, Component = new Component() };
+            var (controller, input, submissions) = CreateGizmoController(EditorTool.Rotate, unitsPerPixel);
+            var radius = 32 * unitsPerPixel;
+            var pivot = drawable.Position;
+
+            input(true, false);
+            ProcessGizmoPointer(controller, new[] { overlay, otherOverlay }, otherOverlay, pivot + new Vec2(radius, 0));
+            input(true, true);
+            ProcessGizmoPointer(controller, new[] { overlay, otherOverlay }, null, pivot + new Vec2(0, radius));
+            input(false, true);
+            ProcessGizmoPointer(controller, new[] { overlay, otherOverlay }, null, pivot + new Vec2(0, radius));
+
+            Assert.Equal(90, drawable.Rotation, 5);
+            var change = Assert.Single(submissions);
+            Assert.Same(component, change.Component);
+            Assert.Equal(90.0, change.Value);
+            Assert.True(controller.EditorToolModel.TryCapturePointer(this));
+            controller.EditorToolModel.ReleasePointer(this);
+        }
+
+        [Fact]
+        public void MoveGizmo_SnapsBoundingBoxToAlignmentOfOtherComponents()
+        {
+            var scene = StartScene();
+            var moved = scene.Drawables.Create<BoxDrawable>();
+            var other = scene.Drawables.Create<BoxDrawable>();
+            moved.Size = other.Size = new Vec2(10, 10);
+            other.Position = new Vec2(102, 50);
+            var movedComponent = new Component();
+            movedComponent.Properties.Add(new Property { Name = "Position", Value = moved.Position });
+            var overlay = new Debug2DDrawable { TypeOObject = moved, Component = movedComponent, Focused = true };
+            var otherOverlay = new Debug2DDrawable { TypeOObject = other, Component = new Component() };
+            var overlays = new[] { overlay, otherOverlay };
+            var (controller, input, _) = CreateGizmoController(EditorTool.Move, 1);
+            controller.GetDebugDrawables = () => overlays;
+            controller.EditorToolModel.SnapToAlignment = true;
+            var press = new Vec2(8, 5);
+
+            input(true, false);
+            ProcessGizmoPointer(controller, overlays, null, press);
+            input(true, true);
+            ProcessGizmoPointer(controller, overlays, null, press + new Vec2(96, 3));
+
+            // The centre of the moved box (101) snaps to the left edge of the other box (102); y is out of range
+            AssertPoint(new Vec2(97, 3), moved.Position);
+
+            input(false, true);
+            ProcessGizmoPointer(controller, overlays, null, press + new Vec2(96, 3));
+        }
+
+        private static (SelectionController2DDrawable Controller, Action<bool, bool> SetButtons, List<ChangePropertyCommandData> Submissions)
+            CreateGizmoController(EditorTool tool, double unitsPerPixel)
+        {
+            var down = false;
+            var oldDown = false;
+            var hardware = MakeProxy<IMouseHardware>((method, args) => method.Name switch
+            {
+                "CurrentButtonDownEvent" => (MouseButton)args[0] == MouseButton.Left && down,
+                "OldButtonUpEvent" => (MouseButton)args[0] != MouseButton.Left || !oldDown,
+                _ => throw new InvalidOperationException(method.Name)
+            });
+            var mouse = new MouseInputService();
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(MouseInputService).GetProperty("MouseHardware", flags).SetValue(mouse, hardware);
+            typeof(MouseInputService).GetProperty("KeyConverter", flags).SetValue(mouse, new KeyConverter());
+            mouse.SetKeyAlias(MouseButton.Left, MouseButton.Left);
+            mouse.SetKeyAlias(MouseButton.Right, MouseButton.Right);
+            var modelType = typeof(IEditorToolModel).Assembly.GetType("TypeDCore.Models.EditorToolModel");
+            var model = (IEditorToolModel)Activator.CreateInstance(modelType, true);
+            model.ActiveTool = tool;
+            var submissions = new List<ChangePropertyCommandData>();
+            var controller = new SelectionController2DDrawable
+            {
+                EditorToolModel = model,
+                MouseInputService = mouse,
+                EditorCommandRegistry = MakeProxy<IEditorCommandRegistry>((_, args) =>
+                {
+                    submissions.Add((ChangePropertyCommandData)args[1]);
+                    return true;
+                })
+            };
+            typeof(SelectionController2DDrawable).GetProperty("UnitsPerPixel", flags).SetValue(controller, unitsPerPixel);
+            return (controller, (current, previous) => { down = current; oldDown = previous; }, submissions);
+        }
+
+        private static void ProcessGizmoPointer(SelectionController2DDrawable controller, Debug2DDrawable[] drawables,
+            Debug2DDrawable topmost, Vec2 position) =>
+            typeof(SelectionController2DDrawable).GetMethod("ProcessPointer", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(controller, new object[] { drawables, topmost, position });
+
+        [Fact]
+        public void ViewerNudge_MovesSelectionInWorldDirectionAndAccumulatesPendingChanges()
+        {
+            var scene = StartScene();
+            var parent = scene.Entities.Create<Box>();
+            parent.Rotation = 90;
+            var first = parent.Drawables.Create<BoxDrawable>();
+            first.Position = new Vec2(10, 20);
+            var second = scene.Drawables.Create<BoxDrawable>();
+            second.Position = new Vec2(30, 40);
+            var overlays = new[] { first, second }.Select(drawable =>
+            {
+                var component = new Component();
+                component.Properties.Add(new Property { Name = "Position", Value = drawable.Position, Type = typeof(Vec2) });
+                return new Debug2DDrawable { TypeOObject = drawable, Component = component };
+            }).ToArray();
+            var project = CreateTestProject();
+            var submissions = new List<ChangePropertyCommandData>();
+            var initializer = CreateNudgeInitializer(project, overlays, submissions);
+
+            for (var i = 0; i < 2; i++)
+            {
+                var hook = new ViewerNudgeHook { Project = project, Components = overlays.Select(o => o.Component).ToArray(), Delta = new Vec2(1, 0) };
+                initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(initializer, new object[] { hook });
+                Assert.True(hook.Handled);
+            }
+
+            Assert.Equal(2, submissions.Count);
+            Assert.All(submissions, change => Assert.Single(change.AdditionalChanges));
+            AssertPoint(new Vec2(10, 18), (Vec2)overlays[0].Component.Properties[0].Value);
+            AssertPoint(new Vec2(32, 40), (Vec2)overlays[1].Component.Properties[0].Value);
+        }
+
+        [Fact]
+        public void ViewerNudge_DoesNotMoveSelectedChildTwice()
+        {
+            var scene = StartScene();
+            var parent = scene.Entities.Create<Box>();
+            var child = parent.Drawables.Create<BoxDrawable>();
+            var parentComponent = new Component();
+            var childComponent = new Component();
+            SetParentComponent(childComponent, parentComponent);
+            parentComponent.Properties.Add(new Property { Name = "Position", Value = Vec2.Zero });
+            childComponent.Properties.Add(new Property { Name = "Position", Value = Vec2.Zero });
+            var overlays = new[]
+            {
+                new Debug2DDrawable { TypeOObject = parent, Component = parentComponent },
+                new Debug2DDrawable { TypeOObject = child, Component = childComponent }
+            };
+            var project = CreateTestProject();
+            var submissions = new List<ChangePropertyCommandData>();
+            var initializer = CreateNudgeInitializer(project, overlays, submissions);
+            var hook = new ViewerNudgeHook { Project = project, Components = new[] { parentComponent, childComponent }, Delta = new Vec2(1, 0) };
+
+            initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(initializer, new object[] { hook });
+
+            Assert.True(hook.Handled);
+            Assert.Same(parentComponent, Assert.Single(submissions).Component);
+            Assert.Empty(submissions[0].AdditionalChanges);
+            AssertPoint(new Vec2(1, 0), (Vec2)parentComponent.Properties[0].Value);
+            AssertPoint(Vec2.Zero, (Vec2)childComponent.Properties[0].Value);
+        }
+
+        [Theory]
+        [InlineData(-1, 0, 9.5, 20, 11, 20)]
+        [InlineData(1, 0, 10.5, 20, 11, 20)]
+        [InlineData(0, -1, 10, 19.25, 10, 21)]
+        [InlineData(0, 1, 10, 20.25, 10, 21)]
+        public void ViewerNudge_ResizeGrowsAndShrinksEachEdge(int x, int y, double px, double py, double width, double height)
+        {
+            var drawable = StartScene().Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(10, 20);
+            drawable.Size = new Vec2(10, 20);
+            drawable.Origin = new Vec2(0.5, 0.25);
+            var component = new Component();
+            component.Properties.Add(new Property { Name = "Position", Value = drawable.Position });
+            component.Properties.Add(new Property { Name = "Size", Value = drawable.Size });
+            component.Properties.Add(new Property { Name = "Origin", Value = drawable.Origin });
+            var overlay = new Debug2DDrawable { TypeOObject = drawable, Component = component };
+            var project = CreateTestProject();
+            var submissions = new List<ChangePropertyCommandData>();
+            var initializer = CreateNudgeInitializer(project, new[] { overlay }, submissions);
+            var hook = new ViewerNudgeHook { Project = project, Components = new[] { component }, Tool = EditorTool.Resize, Delta = new Vec2(x, y) };
+
+            initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(initializer, new object[] { hook });
+            Assert.True(hook.Handled);
+            AssertPoint(new Vec2(px, py), (Vec2)component.Properties[0].Value);
+            AssertPoint(new Vec2(width, height), (Vec2)component.Properties[1].Value);
+            Assert.Single(Assert.Single(submissions).AdditionalChanges);
+            AssertPoint(new Vec2(10, 20), drawable.Position);
+            AssertPoint(new Vec2(10, 20), drawable.Size);
+
+            hook.Handled = false;
+            hook.Shrink = true;
+            initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(initializer, new object[] { hook });
+            AssertPoint(new Vec2(10, 20), (Vec2)component.Properties[0].Value);
+            AssertPoint(new Vec2(10, 20), (Vec2)component.Properties[1].Value);
+            hook.Handled = false;
+            hook.Delta = new Vec2(x * 100, y * 100);
+            initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(initializer, new object[] { hook });
+            AssertPoint(new Vec2(x == 0 ? 10 : 1, y == 0 ? 20 : 1), (Vec2)component.Properties[1].Value);
+        }
+
+        [Fact]
+        public void ViewerNudge_RotatedResizeAndOriginUseCurrentProperties()
+        {
+            var drawable = StartScene().Drawables.Create<BoxDrawable>();
+            drawable.Position = new Vec2(10, 20);
+            drawable.Size = new Vec2(10, 20);
+            drawable.Origin = new Vec2(0.5, 0.5);
+            drawable.Rotation = 90;
+            var component = new Component();
+            component.Properties.Add(new Property { Name = "Position", Value = drawable.Position });
+            component.Properties.Add(new Property { Name = "Size", Value = drawable.Size });
+            component.Properties.Add(new Property { Name = "Origin", Value = drawable.Origin });
+            component.Properties.Add(new Property { Name = "Rotation", Value = drawable.Rotation });
+            var project = CreateTestProject();
+            var submissions = new List<ChangePropertyCommandData>();
+            var initializer = CreateNudgeInitializer(project, new[] { new Debug2DDrawable { TypeOObject = drawable, Component = component } }, submissions);
+            var hook = new ViewerNudgeHook { Project = project, Components = new[] { component }, Tool = EditorTool.Resize, Delta = new Vec2(-2, 0) };
+            var nudge = initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic);
+            nudge.Invoke(initializer, new object[] { hook });
+            AssertPoint(new Vec2(9, 20), (Vec2)component.Properties[0].Value);
+            AssertPoint(new Vec2(10, 22), (Vec2)component.Properties[1].Value);
+
+            hook.Handled = false;
+            hook.Tool = EditorTool.Origin;
+            hook.Delta = new Vec2(1, 0);
+            nudge.Invoke(initializer, new object[] { hook });
+            hook.Handled = false;
+            nudge.Invoke(initializer, new object[] { hook });
+            AssertPoint(new Vec2(0.5, 0.5 - 2.0 / 22), (Vec2)component.Properties[2].Value);
+            AssertPoint(new Vec2(11, 20), (Vec2)component.Properties[0].Value);
+            Assert.Single(submissions[1].AdditionalChanges);
+            AssertPoint(new Vec2(0.5, 0.5), drawable.Origin);
+            drawable.Position = new Vec2(9, 20);
+            drawable.Size = new Vec2(10, 22);
+            var before = drawable.WorldCorners;
+            drawable.Position = (Vec2)component.Properties[0].Value;
+            drawable.Origin = (Vec2)component.Properties[2].Value;
+            var after = drawable.WorldCorners;
+            AssertPoint(before.TopLeft, after.TopLeft);
+            AssertPoint(before.BottomRight, after.BottomRight);
+
+            hook.Handled = false;
+            hook.Tool = EditorTool.Rotate;
+            hook.Delta = new Vec2(-10, 0);
+            nudge.Invoke(initializer, new object[] { hook });
+            Assert.Equal(80.0, component.Properties[3].Value);
+            Assert.Equal(90, drawable.Rotation);
+        }
+
+        [Fact]
+        public void ViewerNudge_RejectsResizeOfAutoSizedEntity()
+        {
+            var entity = StartScene().Entities.Create<Box>();
+            var component = new Component();
+            component.Properties.Add(new Property { Name = "Position", Value = Vec2.Zero });
+            component.Properties.Add(new Property { Name = "Size", Value = new Vec2(10, 10) });
+            var project = CreateTestProject();
+            var submissions = new List<ChangePropertyCommandData>();
+            var initializer = CreateNudgeInitializer(project, new[] { new Debug2DDrawable { TypeOObject = entity, Component = component } }, submissions);
+            var logs = new List<string>();
+            var logger = MakeProxy<ILogModel>((method, args) => { logs.Add((string)args[0]); return null; });
+            var resources = MakeProxy<IResourceModel>((method, _) =>
+                method.IsGenericMethod && method.GetGenericArguments()[0] == typeof(ILogModel) ? logger : null);
+            initializer.GetType().GetProperty("Resources").SetValue(initializer, resources);
+            var hook = new ViewerNudgeHook { Project = project, Components = new[] { component }, Tool = EditorTool.Resize, Delta = new Vec2(1, 0) };
+
+            initializer.GetType().GetMethod("ViewerNudge", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(initializer, new object[] { hook });
+
+            Assert.Empty(submissions);
+            Assert.Contains("auto-sized", Assert.Single(logs));
+        }
+
+        [Fact]
+        public void ViewerNudge_OptionsExposeAndValidateShiftStep()
+        {
+            var viewerSettings = new ViewerSettingContext();
+            var otherSettings = new Dictionary<Type, object>
+            {
+                [typeof(ViewerSettingContext)] = viewerSettings,
+                [typeof(MainWindowSettingContext)] = new MainWindowSettingContext(),
+                [typeof(OutputSettingContext)] = new OutputSettingContext()
+            };
+            var saved = 0;
+            var settings = MakeProxy<ISettingModel>((method, args) =>
+            {
+                if (method.Name == "GetContext")
+                    return otherSettings[method.GetGenericArguments()[0]];
+                if (method.Name == "SetContext")
+                {
+                    Assert.Same(viewerSettings, args[0]);
+                    saved++;
+                    return null;
+                }
+                throw new InvalidOperationException(method.Name);
+            });
+            var logs = new List<string>();
+            var logger = MakeProxy<ILogModel>((method, args) => { logs.Add((string)args[0]); return null; });
+            var resources = MakeProxy<IResourceModel>((method, _) =>
+                method.IsGenericMethod && method.GetGenericArguments()[0] == typeof(ILogModel) ? logger : null);
+            var type = typeof(ViewerSettingContext).Assembly.GetType("TypeDCore.TypeDCoreInitializer");
+            var initializer = Activator.CreateInstance(type, true);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            type.GetProperty("SettingModel", flags).SetValue(initializer, settings);
+            type.GetProperty("Resources").SetValue(initializer, resources);
+            var hook = new OptionsHook { Level = SettingLevel.User };
+            type.GetMethod("OptionsWindowOpened", flags).Invoke(initializer, new object[] { hook });
+
+            var option = Assert.Single(hook.Items, item => item.Title == "Shift Move Step");
+            Assert.Equal("Viewer", option.Category);
+            option.Set(23);
+            Assert.Equal(23, viewerSettings.ShiftMoveStep.Value);
+            Assert.Equal(1, saved);
+            var jsonOptions = TypeD.Helpers.JSON.CreateOptions();
+            var json = System.Text.Json.JsonSerializer.Serialize(viewerSettings, jsonOptions);
+            var reloaded = System.Text.Json.JsonSerializer.Deserialize<ViewerSettingContext>(json, jsonOptions);
+            Assert.Equal(23, reloaded.ShiftMoveStep.Value);
+            option.Set(0);
+            Assert.Equal(23, viewerSettings.ShiftMoveStep.Value);
+            Assert.Single(logs);
+            Assert.Equal(1, saved);
+        }
+
+        private static object CreateNudgeInitializer(Project project, Debug2DDrawable[] overlays, List<ChangePropertyCommandData> submissions)
+        {
+            var type = typeof(Debug2DDrawable).Assembly.GetType("TypeDBasic2d.TypeDBasic2dInitializer");
+            var initializer = Activator.CreateInstance(type, true);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            type.GetProperty("Project", flags).SetValue(initializer, project);
+            type.GetProperty("DebugDrawablesMap", flags).SetValue(initializer,
+                new ConcurrentDictionary<string, Debug2DDrawable>(overlays.Select((overlay, i) =>
+                    new KeyValuePair<string, Debug2DDrawable>(i.ToString(), overlay))));
+            type.GetProperty("EditorCommandRegistry", flags).SetValue(initializer,
+                MakeProxy<IEditorCommandRegistry>((method, args) =>
+                {
+                    Assert.Equal("component.change-property", args[0]);
+                    var change = (ChangePropertyCommandData)args[1];
+                    submissions.Add(change);
+                    foreach (var item in new[] { change }.Concat(change.AdditionalChanges))
+                        item.Property.Value = item.Value;
+                    return true;
+                }));
+            return initializer;
+        }
+
+        [Theory]
+        [InlineData("Forward", 1, "ACBD")]
+        [InlineData("Front", 1, "ACDB")]
+        [InlineData("Backward", 2, "ACBD")]
+        [InlineData("Back", 2, "CABD")]
+        public void DrawOrderPlanner_MovesExactlyPastRequestedOverlapsWithTiedOrders(string move, int selected, string expected)
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 0, 0, 0);
+
+            var changes = PlanOrder(overlays[selected].Component, overlays, move);
+
+            Assert.NotNull(changes);
+            ApplyOrderChanges(overlays, changes);
+            var order = scene.DrawStack.GetDrawablesInDrawOrder()
+                .Select(drawable => overlays.Single(overlay => ReferenceEquals(overlay.TypeOObject, drawable)).Component.ClassName);
+            Assert.Equal(expected, string.Concat(order));
+        }
+
+        [Theory]
+        [InlineData(int.MinValue)]
+        [InlineData(int.MaxValue)]
+        public void DrawOrderPlanner_HandlesIntegerLimitsAndAdjacentOrders(int order)
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, order, order, order);
+            var changes = PlanOrder(overlays[1].Component, overlays, "Forward");
+
+            Assert.NotNull(changes);
+            ApplyOrderChanges(overlays, changes);
+            var actual = scene.DrawStack.GetDrawablesInDrawOrder()
+                .Select(drawable => overlays.Single(overlay => ReferenceEquals(overlay.TypeOObject, drawable)).Component.ClassName);
+            Assert.Equal("ACB", string.Concat(actual));
+        }
+
+        [Fact]
+        public void DrawOrderPlanner_SkipsNonOverlapsAndOtherDrawStacks()
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 1, 2, 3);
+            ((BoxDrawable)overlays[1].TypeOObject).Position = new Vec2(100, 100);
+            var otherStack = scene.CreateDrawStack("other", "Other");
+            var other = otherStack.DrawableManager.Create<BoxDrawable>();
+            other.Size = new Vec2(10, 10);
+            var otherComponent = OrderComponent("Other", 0);
+            overlays.Add(new Debug2DDrawable { TypeOObject = other, Component = otherComponent });
+
+            var changes = PlanOrder(overlays[0].Component, overlays, "Forward");
+
+            Assert.NotNull(changes);
+            ApplyOrderChanges(overlays, changes);
+            var order = scene.DrawStack.GetDrawablesInDrawOrder()
+                .Select(drawable => overlays.Single(overlay => ReferenceEquals(overlay.TypeOObject, drawable)).Component.ClassName);
+            Assert.Equal("BCAD", string.Concat(order));
+            Assert.Equal(0, other.DrawOrder);
+        }
+
+        [Fact]
+        public void DrawOrderPlanner_DoesNotTreatRotatedBoundingBoxAsOverlap()
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 1);
+            var first = (BoxDrawable)overlays[0].TypeOObject;
+            first.Size = new Vec2(10, 2);
+            first.Rotation = 45;
+            var second = (BoxDrawable)overlays[1].TypeOObject;
+            second.Position = new Vec2(-1, 6);
+            second.Size = new Vec2(1, 1);
+
+            Assert.Null(PlanOrder(overlays[0].Component, overlays, "Forward"));
+        }
+
+        [Fact]
+        public void DrawOrderPlanner_RestoringTiedOrdersRestoresOriginalRenderingOrder()
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 0, 0, 0);
+            var changes = PlanOrder(overlays[1].Component, overlays, "Front");
+            ApplyOrderChanges(overlays, changes);
+            Assert.Equal("ACDB", RenderOrder(scene, overlays));
+
+            foreach (var overlay in overlays)
+                ((BoxDrawable)overlay.TypeOObject).DrawOrder = 0;
+            Assert.Equal("ABCD", RenderOrder(scene, overlays));
+            ApplyOrderChanges(overlays, changes);
+            Assert.Equal("ACDB", RenderOrder(scene, overlays));
+        }
+
+        [Fact]
+        public void DrawStack_ReaddingDrawablePlacesItLastAmongTies()
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 0, 0);
+            var drawable = (BoxDrawable)overlays[1].TypeOObject;
+            foreach (var overlay in overlays)
+                ((BoxDrawable)overlay.TypeOObject).Hidden = true;
+            scene.DrawStack.Pop(drawable);
+            scene.DrawStack.Draw(null);
+            Assert.Equal("AC", RenderOrder(scene, overlays));
+
+            scene.DrawStack.Push(drawable);
+            scene.DrawStack.Draw(null);
+            Assert.Equal("ACB", RenderOrder(scene, overlays));
+        }
+
+        [Fact]
+        public void DrawOrderPlanner_DoesNotChangeReadOnlyTarget()
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 1);
+            overlays[0].Component.ReadOnly = true;
+            Assert.Null(PlanOrder(overlays[0].Component, overlays, "Forward"));
+        }
+
+        [Fact]
+        public void ChangePropertyCommand_AdditionalChangesUndoAndRedoTogether()
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 0, 0, 0);
+            var changes = PlanOrder(overlays[1].Component, overlays, "Forward");
+            Assert.True(changes.Count > 1);
+            var historyType = typeof(Project).Assembly.GetType("TypeD.Models.CommandHistoryModel");
+            var history = (ICommandHistoryModel)Activator.CreateInstance(historyType, true);
+            var saveContext = new ComponentSaveContext { Components = overlays.Select(overlay => overlay.Component).ToList() };
+            var services = new Dictionary<Type, object>
+            {
+                [typeof(ICommandHistoryModel)] = history,
+                [typeof(ISaveModel)] = MakeProxy<ISaveModel>((method, _) => method.Name == "GetSaveContext" ? saveContext : null),
+                [typeof(IHookModel)] = MakeProxy<IHookModel>((_, args) => args.FirstOrDefault()),
+                [typeof(IEditorCommandRegistry)] = MakeProxy<IEditorCommandRegistry>((_, _) => null)
+            };
+            var resources = MakeProxy<IResourceModel>((method, _) =>
+                method.IsGenericMethod && services.TryGetValue(method.GetGenericArguments()[0], out var service) ? service : null);
+            var commandType = typeof(TypeDCore.Models.Data.Hooks.ViewerHitTestHook).Assembly.GetType("TypeDCore.Commands.ChangePropertyCommand");
+            var command = (CustomCommand)Activator.CreateInstance(commandType, resources);
+            var first = changes[0];
+            first.AdditionalChanges = changes.Skip(1).ToList();
+            var before = changes.Select(change => change.Property.Value).ToArray();
+
+            Assert.True(command.CanExecute(first));
+            var additional = first.AdditionalChanges;
+            first.AdditionalChanges = new[] { new ChangePropertyCommandData
+            {
+                Project = first.Project, Component = first.Component, Property = first.Property, Value = first.Value
+            } };
+            Assert.False(command.CanExecute(first));
+            first.AdditionalChanges = additional;
+            command.Execute(first);
+            Assert.Equal(changes.Select(change => change.Value), changes.Select(change => change.Property.Value));
+            Assert.Single(history.Entries);
+            Assert.True(history.Undo());
+            Assert.Equal(before, changes.Select(change => change.Property.Value));
+            Assert.True(history.Redo());
+            Assert.Equal(changes.Select(change => change.Value), changes.Select(change => change.Property.Value));
+        }
+
+        [Theory]
+        [InlineData(false, "_Forward", 1, "ACBD")]
+        [InlineData(false, "_Front", 1, "ACDB")]
+        [InlineData(false, "_Backward", 2, "ACBD")]
+        [InlineData(false, "_Back", 2, "CABD")]
+        [InlineData(true, "_Forward", 1, "ACBD")]
+        [InlineData(true, "_Front", 1, "ACDB")]
+        [InlineData(true, "_Backward", 2, "ACBD")]
+        [InlineData(true, "_Back", 2, "CABD")]
+        public void DrawOrderMenu_ExecutesForExplorerAndViewer(bool viewer, string action, int selected, string expected)
+        {
+            var scene = StartScene();
+            var overlays = CreateOrderOverlays(scene, 0, 0, 0, 0);
+            var component = overlays[selected].Component;
+            component.BaseInheritedComponent = Basic2dComponent.DrawableRectangleComponent();
+            var project = PlanOrder(component, overlays, "Front")?[0].Project
+                ?? PlanOrder(component, overlays, "Back")[0].Project;
+            var initializerType = typeof(Debug2DDrawable).Assembly.GetType("TypeDBasic2d.TypeDBasic2dInitializer");
+            var initializer = Activator.CreateInstance(initializerType, true);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            initializerType.GetProperty("DebugDrawablesMap", flags).SetValue(initializer,
+                new ConcurrentDictionary<string, Debug2DDrawable>(overlays.Select((overlay, i) =>
+                    new KeyValuePair<string, Debug2DDrawable>(i.ToString(), overlay))));
+            ChangePropertyCommandData submitted = null;
+            initializerType.GetProperty("EditorCommandRegistry", flags).SetValue(initializer,
+                MakeProxy<IEditorCommandRegistry>((method, args) =>
+                {
+                    if (method.Name != "Execute")
+                        throw new InvalidOperationException(method.Name);
+                    Assert.Equal("component.change-property", args[0]);
+                    submitted = (ChangePropertyCommandData)args[1];
+                    return true;
+                }));
+            ComponentContextMenuHook hook = viewer ? new ViewerComponentContextMenuHook() : new ComponentContextMenuHook();
+            hook.Project = project;
+            hook.SelectedComponent = component;
+            hook.Menu = new TypeD.View.Menu();
+            initializerType.GetMethod("ComponentContextMenuOpened", flags).Invoke(initializer, new object[] { hook });
+
+            var submenu = Assert.Single(hook.Menu.Items, item => item.Name == "_Send to...");
+            Assert.Equal(new[] { "_Forward", "_Front", "_Backward", "_Back" }, submenu.Items.Select(item => item.Name));
+            var item = Assert.Single(submenu.Items, item => item.Name == action);
+            Assert.True(item.IsEnabled);
+            item.Click(null);
+            Assert.NotNull(submitted);
+            ApplyOrderChanges(overlays, new[] { submitted }.Concat(submitted.AdditionalChanges).ToList());
+            Assert.Equal(expected, RenderOrder(scene, overlays));
+        }
+
+        [Theory]
+        [InlineData("Drawable2d", false)]
+        [InlineData("DrawableRectangle", true)]
+        [InlineData("DrawableCircle", false)]
+        [InlineData("DrawableTriangle", true)]
+        [InlineData("DrawablePolygon", false)]
+        [InlineData("DrawableTexture", true)]
+        [InlineData("DrawableFont", false)]
+        public void DrawOrderMenu_RecognizesBuiltInDrawableMetadataWithoutViewer(string name, bool viewer)
+        {
+            var definition = name switch
+            {
+                "Drawable2d" => Basic2dComponent.Drawable2dComponent(),
+                "DrawableRectangle" => Basic2dComponent.DrawableRectangleComponent(),
+                "DrawableCircle" => Basic2dComponent.DrawableCircleComponent(),
+                "DrawableTriangle" => Basic2dComponent.DrawableTriangleComponent(),
+                "DrawablePolygon" => Basic2dComponent.DrawablePolygonComponent(),
+                "DrawableTexture" => Basic2dComponent.DrawableTextureComponent(),
+                "DrawableFont" => Basic2dComponent.DrawableFontComponent(),
+                _ => throw new ArgumentOutOfRangeException(nameof(name))
+            };
+            var component = new Component { ClassName = "CustomDrawable", BaseInheritedComponent = definition };
+            var initializerType = typeof(Debug2DDrawable).Assembly.GetType("TypeDBasic2d.TypeDBasic2dInitializer");
+            var initializer = Activator.CreateInstance(initializerType, true);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            initializerType.GetProperty("DebugDrawablesMap", flags).SetValue(initializer,
+                new ConcurrentDictionary<string, Debug2DDrawable>());
+            ComponentContextMenuHook hook = viewer ? new ViewerComponentContextMenuHook() : new ComponentContextMenuHook();
+            hook.SelectedComponent = component;
+            hook.Menu = new TypeD.View.Menu();
+            initializerType.GetMethod("ComponentContextMenuOpened", flags).Invoke(initializer, new object[] { hook });
+
+            var submenu = Assert.Single(hook.Menu.Items, item => item.Name == "_Send to...");
+            Assert.All(submenu.Items, item => Assert.False(item.IsEnabled));
+        }
+
+        [Fact]
+        public void DrawOrderMenu_DoesNotAppearForEntity()
+        {
+            var initializerType = typeof(Debug2DDrawable).Assembly.GetType("TypeDBasic2d.TypeDBasic2dInitializer");
+            var initializer = Activator.CreateInstance(initializerType, true);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            initializerType.GetProperty("DebugDrawablesMap", flags).SetValue(initializer,
+                new ConcurrentDictionary<string, Debug2DDrawable>());
+            var hook = new ComponentContextMenuHook
+            {
+                SelectedComponent = new Component { ClassName = "CustomEntity", BaseInheritedComponent = Basic2dComponent.Entity2dComponent() },
+                Menu = new TypeD.View.Menu()
+            };
+            initializerType.GetMethod("ComponentContextMenuOpened", flags).Invoke(initializer, new object[] { hook });
+            Assert.DoesNotContain(hook.Menu.Items, item => item.Name == "_Send to...");
+        }
+
+        private static string RenderOrder(BoxScene scene, List<Debug2DDrawable> overlays) =>
+            string.Concat(scene.DrawStack.GetDrawablesInDrawOrder()
+                .Select(drawable => overlays.Single(overlay => ReferenceEquals(overlay.TypeOObject, drawable)).Component.ClassName));
+
+        public class TestInterfaceProxy : DispatchProxy
+        {
+            public Func<MethodInfo, object[], object> Handler { get; set; }
+            protected override object Invoke(MethodInfo targetMethod, object[] args) => Handler(targetMethod, args);
+        }
+
+        private static T MakeProxy<T>(Func<MethodInfo, object[], object> handler) where T : class
+        {
+            var proxy = DispatchProxy.Create<T, TestInterfaceProxy>();
+            ((TestInterfaceProxy)(object)proxy).Handler = handler;
+            return proxy;
+        }
+
+        private static List<Debug2DDrawable> CreateOrderOverlays(BoxScene scene, params int[] orders)
+        {
+            var overlays = new List<Debug2DDrawable>();
+            for (var i = 0; i < orders.Length; i++)
+            {
+                var drawable = scene.Drawables.Create<BoxDrawable>();
+                drawable.Size = new Vec2(10, 10);
+                drawable.DrawOrder = orders[i];
+                overlays.Add(new Debug2DDrawable { TypeOObject = drawable, Component = OrderComponent(((char)('A' + i)).ToString(), orders[i]) });
+            }
+            scene.DrawStack.Draw(null);
+            return overlays;
+        }
+
+        private static Component OrderComponent(string name, int order)
+        {
+            var component = new Component { ClassName = name };
+            component.Properties.Add(new Property { Name = "DrawOrder", Type = typeof(int), Value = order });
+            return component;
+        }
+
+        private static List<ChangePropertyCommandData> PlanOrder(Component component, List<Debug2DDrawable> overlays, string move)
+        {
+            var assembly = typeof(Debug2DDrawable).Assembly;
+            var planner = assembly.GetType("TypeDBasic2d.Typedeaf.Core.Entities.Drawables.DrawOrderPlanner");
+            var moveType = assembly.GetType("TypeDBasic2d.Typedeaf.Core.Entities.Drawables.DrawOrderMove");
+            var project = CreateTestProject();
+            return (List<ChangePropertyCommandData>)planner.GetMethod("Plan", BindingFlags.Static | BindingFlags.NonPublic)
+                .Invoke(null, new object[] { project, component, overlays, Enum.Parse(moveType, move) });
+        }
+
+        private static Project CreateTestProject()
+        {
+            var constructor = typeof(Project).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
+            var dto = System.Text.Json.JsonSerializer.Deserialize("{\"ProjectName\":\"OrderTest\"}", constructor.GetParameters()[1].ParameterType);
+            return (Project)constructor.Invoke(new[] { Path.GetTempPath(), dto });
+        }
+
+        private static void ApplyOrderChanges(List<Debug2DDrawable> overlays, List<ChangePropertyCommandData> changes)
+        {
+            foreach (var change in changes)
+            {
+                change.Property.Value = change.Value;
+                var overlay = overlays.Single(item => ReferenceEquals(item.Component, change.Component));
+                ((BoxDrawable)overlay.TypeOObject).DrawOrder = (int)change.Value;
+            }
         }
 
         private static void SetParentComponent(TypeD.Models.Data.Component component, TypeD.Models.Data.Component parent)

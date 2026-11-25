@@ -46,7 +46,10 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
         private const double GizmoLength = 48;
         private const double HandleRadius = 8;
+        private const double MoveCenterRadius = 8;
+        private const double RotationRadius = 32;
         private const double MinimumSize = 1;
+        private const double SnapThreshold = 6;
         private const long DoubleClickMilliseconds = 400;
 
         private long _lastClickTime;
@@ -109,6 +112,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private List<DragItem> DragItems { get; set; } = new();
         private Vec2 DragStartOrigin { get; set; }
         private Vec2 PreviewOrigin { get; set; }
+        private List<(Vec2 Pos, Vec2 Size)> SnapTargets { get; set; } = new();
+        private List<(Vec2 A, Vec2 B)> SnapGuides { get; set; } = new();
 
         /// <summary>
         /// Draws this controller above everything else.
@@ -162,6 +167,11 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             var display = EditorToolModel;
             if (IsBoxSelecting)
                 DrawRectangle(canvas, Normalized(BoxStart, mousePos), Color.White);
+            if (IsDragging)
+            {
+                foreach (var (start, end) in SnapGuides)
+                    canvas.DrawLineA(start, end, new Color(255, 0, 255));
+            }
 
             // The selection bounding box and the tool gizmos stay visible even when bounding boxes are hidden
             List<Debug2DDrawable> selected = null;
@@ -185,6 +195,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 DrawMoveGizmo(canvas, combined.Pos, combined.Size);
             else if (tool == EditorTool.Resize)
                 DrawResizeHandles(canvas, combined.Pos, combined.Size, UnitsPerPixel);
+            else if (tool == EditorTool.Rotate && selected.Count == 1)
+                DrawRotateGizmo(canvas, selected[0].GetObjectPivot());
             else if (tool == EditorTool.Origin && selected.Count == 1 && selected[0].TypeOObject is Drawable2d)
                 DrawOriginGizmo(canvas, selected[0]);
         }
@@ -273,7 +285,16 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (!MouseInputService.IsPressed(MouseButton.Left))
                 return;
 
-            if (topmost != null && IsDoubleClick(topmost))
+            var selected = drawables.Where(d => d.Focused).ToList();
+            var tool = EditorToolModel.ActiveTool;
+            var moveGizmo = tool == EditorTool.Move && selected.Count > 0
+                ? HitMoveGizmo(mousePos, CombinedBounds(selected))
+                : (Center: false, X: false, Y: false);
+            var rotateGizmo = tool == EditorTool.Rotate && selected.Count == 1
+                && HitRotateGizmo(mousePos, selected[0].GetObjectPivot());
+
+            if (!moveGizmo.Center && !moveGizmo.X && !moveGizmo.Y && !rotateGizmo
+                && topmost != null && IsDoubleClick(topmost))
             {
                 if (!topmost.Focused)
                     Select(new[] { topmost }, topmost);
@@ -281,9 +302,6 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 if (doubleClick?.Handled == true)
                     return;
             }
-
-            var selected = drawables.Where(d => d.Focused).ToList();
-            var tool = EditorToolModel.ActiveTool;
 
             // Ctrl+Click adds to or removes from the selection with any tool
             if (EditorToolModel.MultiSelectModifierDown)
@@ -304,23 +322,9 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
             else if (tool == EditorTool.Move)
             {
-                var isDraggingX = false;
-                var isDraggingY = false;
-                var insideSelection = false;
-                if (selected.Count > 0)
+                if (moveGizmo.Center || moveGizmo.X || moveGizmo.Y || selected.Any(drawable => drawable.ContainsPoint(mousePos)))
                 {
-                    var combined = CombinedBounds(selected);
-                    var center = combined.Pos + (combined.Size / 2);
-                    var xEnd = center + new Vec2(GizmoLength * UnitsPerPixel, 0);
-                    var yEnd = center + new Vec2(0, -GizmoLength * UnitsPerPixel);
-                    isDraggingX = DistanceToSegment(mousePos, center, xEnd) <= HandleRadius * UnitsPerPixel;
-                    isDraggingY = !isDraggingX && DistanceToSegment(mousePos, center, yEnd) <= HandleRadius * UnitsPerPixel;
-                    insideSelection = selected.Any(drawable => drawable.ContainsPoint(mousePos));
-                }
-
-                if (isDraggingX || isDraggingY || insideSelection)
-                {
-                    BeginDrag(EditorTool.Move, selected, mousePos, isDraggingX, isDraggingY, ResizeAxes.None);
+                    BeginDrag(EditorTool.Move, selected, mousePos, moveGizmo.X, moveGizmo.Y, ResizeAxes.None);
                 }
                 else if (topmost != null)
                 {
@@ -357,7 +361,11 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
             else if (tool == EditorTool.Rotate)
             {
-                if (topmost != null)
+                if (rotateGizmo)
+                {
+                    BeginDrag(EditorTool.Rotate, selected, mousePos, false, false, ResizeAxes.None);
+                }
+                else if (topmost != null)
                 {
                     if (!topmost.Focused)
                         Select(new[] { topmost }, topmost);
@@ -494,11 +502,146 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             DragStartCombined = CombinedBounds(dragItems);
             DragStartOrigin = dragItems[0].GetObjectOrigin();
             PreviewOrigin = DragStartOrigin;
+            SnapGuides = new List<(Vec2 A, Vec2 B)>();
+            SnapTargets = new List<(Vec2 Pos, Vec2 Size)>();
+            if (EditorToolModel?.SnapToAlignment == true && tool is EditorTool.Move or EditorTool.Resize && GetDebugDrawables != null)
+            {
+                var dragged = dragItems.Select(d => (object)d.TypeOObject).ToHashSet();
+                foreach (var drawable in GetDebugDrawables())
+                {
+                    if (dragItems.Contains(drawable) || drawable.Component?.IsVisible == false || HasAncestorIn(drawable.TypeOObject, dragged))
+                        continue;
+                    var bounds = drawable.GetBounds();
+                    if (bounds.Size.X > 0 || bounds.Size.Y > 0)
+                        SnapTargets.Add(bounds);
+                }
+            }
+        }
+
+        private static bool HasAncestorIn(object node, HashSet<object> ancestors)
+        {
+            for (var depth = 0; depth < 64; depth++)
+            {
+                node = node switch
+                {
+                    Entity2d entity => entity.Parent,
+                    Drawable2d drawable => drawable.Parent,
+                    _ => null
+                };
+                if (node == null)
+                    return false;
+                if (ancestors.Contains(node))
+                    return true;
+            }
+            return false;
+        }
+
+        private static IEnumerable<double> AlignmentValues(double position, double size)
+        {
+            yield return position;
+            yield return position + size / 2;
+            yield return position + size;
+        }
+
+        // Finds the offset that brings the closest moving value onto a target alignment line within the threshold
+        private double SnapOffset(IEnumerable<double> moving, int axis)
+        {
+            var threshold = SnapThreshold * UnitsPerPixel;
+            var best = double.MaxValue;
+            foreach (var value in moving)
+            {
+                foreach (var target in SnapTargets)
+                {
+                    var (position, size) = axis == 0 ? (target.Pos.X, target.Size.X) : (target.Pos.Y, target.Size.Y);
+                    foreach (var line in AlignmentValues(position, size))
+                    {
+                        var offset = line - value;
+                        if (Math.Abs(offset) <= threshold && Math.Abs(offset) < Math.Abs(best))
+                            best = offset;
+                    }
+                }
+            }
+            return best == double.MaxValue ? 0 : best;
+        }
+
+        // Adds a guide line for every target alignment line that a moving value lies on, spanning both boxes
+        private void AddGuides((Vec2 Pos, Vec2 Size) moving, IEnumerable<double> values, int axis)
+        {
+            var epsilon = 0.01 * UnitsPerPixel;
+            foreach (var value in values)
+            {
+                foreach (var target in SnapTargets)
+                {
+                    var (position, size) = axis == 0 ? (target.Pos.X, target.Size.X) : (target.Pos.Y, target.Size.Y);
+                    if (!AlignmentValues(position, size).Any(line => Math.Abs(line - value) <= epsilon))
+                        continue;
+
+                    if (axis == 0)
+                    {
+                        var top = Math.Min(moving.Pos.Y, target.Pos.Y);
+                        var bottom = Math.Max(moving.Pos.Y + moving.Size.Y, target.Pos.Y + target.Size.Y);
+                        SnapGuides.Add((new Vec2(value, top), new Vec2(value, bottom)));
+                    }
+                    else
+                    {
+                        var left = Math.Min(moving.Pos.X, target.Pos.X);
+                        var right = Math.Max(moving.Pos.X + moving.Size.X, target.Pos.X + target.Size.X);
+                        SnapGuides.Add((new Vec2(left, value), new Vec2(right, value)));
+                    }
+                }
+            }
+        }
+
+        private Vec2 SnapMoveDelta(Vec2 delta)
+        {
+            var box = (Pos: DragStartCombined.Pos + delta, Size: DragStartCombined.Size);
+            var offsetX = IsDraggingY ? 0 : SnapOffset(AlignmentValues(box.Pos.X, box.Size.X), 0);
+            var offsetY = IsDraggingX ? 0 : SnapOffset(AlignmentValues(box.Pos.Y, box.Size.Y), 1);
+            delta += new Vec2(offsetX, offsetY);
+            box.Pos += new Vec2(offsetX, offsetY);
+            if (!IsDraggingY)
+                AddGuides(box, AlignmentValues(box.Pos.X, box.Size.X), 0);
+            if (!IsDraggingX)
+                AddGuides(box, AlignmentValues(box.Pos.Y, box.Size.Y), 1);
+            return delta;
+        }
+
+        // Snaps the edges that are dragged while resizing; the box guide lines are added after the snap
+        private Vec2 SnapResizeDelta(Vec2 delta)
+        {
+            var start = DragStartCombined;
+            var edgesX = new List<double>();
+            var edgesY = new List<double>();
+            if (DragResizeAxes.HasFlag(ResizeAxes.Left))
+                edgesX.Add(start.Pos.X + delta.X);
+            else if (DragResizeAxes.HasFlag(ResizeAxes.Right))
+                edgesX.Add(start.Pos.X + start.Size.X + delta.X);
+            if (DragResizeAxes.HasFlag(ResizeAxes.Top))
+                edgesY.Add(start.Pos.Y + delta.Y);
+            else if (DragResizeAxes.HasFlag(ResizeAxes.Bottom))
+                edgesY.Add(start.Pos.Y + start.Size.Y + delta.Y);
+
+            var offset = new Vec2(SnapOffset(edgesX, 0), SnapOffset(edgesY, 1));
+            delta += offset;
+            var box = start;
+            if (DragResizeAxes.HasFlag(ResizeAxes.Left))
+                box = (new Vec2(start.Pos.X + delta.X, box.Pos.Y), new Vec2(start.Size.X - delta.X, box.Size.Y));
+            else if (DragResizeAxes.HasFlag(ResizeAxes.Right))
+                box = (box.Pos, new Vec2(start.Size.X + delta.X, box.Size.Y));
+            if (DragResizeAxes.HasFlag(ResizeAxes.Top))
+                box = (new Vec2(box.Pos.X, start.Pos.Y + delta.Y), new Vec2(box.Size.X, start.Size.Y - delta.Y));
+            else if (DragResizeAxes.HasFlag(ResizeAxes.Bottom))
+                box = (box.Pos, new Vec2(box.Size.X, start.Size.Y + delta.Y));
+
+            AddGuides(box, edgesX.Select(edge => edge + offset.X), 0);
+            AddGuides(box, edgesY.Select(edge => edge + offset.Y), 1);
+            return delta;
         }
 
         private void UpdateDrag(Vec2 mousePos)
         {
             var delta = mousePos - DragStartMouse;
+            SnapGuides.Clear();
 
             if (DragTool == EditorTool.Move)
             {
@@ -506,6 +649,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     delta = new Vec2(delta.X, 0);
                 else if (IsDraggingY)
                     delta = new Vec2(0, delta.Y);
+                if (SnapTargets.Count > 0)
+                    delta = SnapMoveDelta(delta);
 
                 foreach (var item in DragItems)
                     item.Drawable.SetObjectPosition(item.StartPosition + item.Drawable.GetObjectLocalDelta(delta));
@@ -517,7 +662,30 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 var rectPos = DragStartCombined.Pos;
                 var rectSize = DragStartCombined.Size;
 
-                if (DragResizeAxes.HasFlag(ResizeAxes.Left))
+                var horizontal = DragResizeAxes.HasFlag(ResizeAxes.Left) ? -1 : DragResizeAxes.HasFlag(ResizeAxes.Right) ? 1 : 0;
+                var vertical = DragResizeAxes.HasFlag(ResizeAxes.Top) ? -1 : DragResizeAxes.HasFlag(ResizeAxes.Bottom) ? 1 : 0;
+                var direction = new Vec2(horizontal * rectSize.X, vertical * rectSize.Y);
+                var uniform = EditorToolModel?.UniformResizeModifierDown == true && direction.LengthSquared() > 0;
+                if (!uniform && SnapTargets.Count > 0)
+                    delta = SnapResizeDelta(delta);
+                if (uniform)
+                {
+                    var factor = 1 + (direction.X * delta.X + direction.Y * delta.Y) / direction.LengthSquared();
+                    var minimumFactor = 0.0;
+                    foreach (var size in DragItems.Select(item => item.StartSize).Append(DragStartCombined.Size))
+                    {
+                        if (size.X > 0)
+                            minimumFactor = Math.Max(minimumFactor, Math.Min(1, MinimumSize / size.X));
+                        if (size.Y > 0)
+                            minimumFactor = Math.Max(minimumFactor, Math.Min(1, MinimumSize / size.Y));
+                    }
+                    factor = Math.Max(minimumFactor, factor);
+                    rectSize = DragStartCombined.Size * factor;
+                    var difference = DragStartCombined.Size - rectSize;
+                    rectPos += new Vec2(horizontal < 0 ? difference.X : horizontal == 0 ? difference.X / 2 : 0,
+                        vertical < 0 ? difference.Y : vertical == 0 ? difference.Y / 2 : 0);
+                }
+                else if (DragResizeAxes.HasFlag(ResizeAxes.Left))
                 {
                     var width = Math.Max(MinimumSize, DragStartCombined.Size.X - delta.X);
                     rectPos.X = DragStartCombined.Pos.X + DragStartCombined.Size.X - width;
@@ -528,13 +696,13 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     rectSize.X = Math.Max(MinimumSize, DragStartCombined.Size.X + delta.X);
                 }
 
-                if (DragResizeAxes.HasFlag(ResizeAxes.Top))
+                if (!uniform && DragResizeAxes.HasFlag(ResizeAxes.Top))
                 {
                     var height = Math.Max(MinimumSize, DragStartCombined.Size.Y - delta.Y);
                     rectPos.Y = DragStartCombined.Pos.Y + DragStartCombined.Size.Y - height;
                     rectSize.Y = height;
                 }
-                else if (DragResizeAxes.HasFlag(ResizeAxes.Bottom))
+                else if (!uniform && DragResizeAxes.HasFlag(ResizeAxes.Bottom))
                 {
                     rectSize.Y = Math.Max(MinimumSize, DragStartCombined.Size.Y + delta.Y);
                 }
@@ -548,11 +716,21 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                     var newBoundsPos = rectPos + new Vec2(
                         (item.StartBoundsPos.X - DragStartCombined.Pos.X) * scale.X,
                         (item.StartBoundsPos.Y - DragStartCombined.Pos.Y) * scale.Y);
-                    var boundsDelta = newBoundsPos - item.StartBoundsPos;
-                    item.Drawable.SetObjectPosition(item.StartPosition + item.Drawable.GetObjectLocalDelta(boundsDelta));
-                    item.Drawable.SetObjectSize(new Vec2(
-                        Math.Max(MinimumSize, item.StartSize.X * scale.X),
-                        Math.Max(MinimumSize, item.StartSize.Y * scale.Y)));
+                    if (uniform)
+                    {
+                        item.Drawable.SetObjectPosition(item.StartPosition);
+                        item.Drawable.SetObjectSize(new Vec2(item.StartSize.X * scale.X, item.StartSize.Y * scale.Y));
+                        var boundsDelta = newBoundsPos - item.Drawable.GetBounds().Pos;
+                        item.Drawable.SetObjectPosition(item.StartPosition + item.Drawable.GetObjectLocalDelta(boundsDelta));
+                    }
+                    else
+                    {
+                        var boundsDelta = newBoundsPos - item.StartBoundsPos;
+                        item.Drawable.SetObjectPosition(item.StartPosition + item.Drawable.GetObjectLocalDelta(boundsDelta));
+                        item.Drawable.SetObjectSize(new Vec2(
+                            Math.Max(MinimumSize, item.StartSize.X * scale.X),
+                            Math.Max(MinimumSize, item.StartSize.Y * scale.Y)));
+                    }
                 }
             }
             else if (DragTool == EditorTool.Origin && DragItems[0].Drawable.TypeOObject is Drawable2d drawable)
@@ -609,6 +787,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
                 new ChangePropertyCommandData
                 {
                     Project = Project,
+                    Component = component,
                     Property = property,
                     Value = value
                 });
@@ -629,6 +808,8 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             IsDraggingY = false;
             DragResizeAxes = ResizeAxes.None;
             DragItems = new List<DragItem>();
+            SnapGuides = new List<(Vec2 A, Vec2 B)>();
+            SnapTargets = new List<(Vec2 Pos, Vec2 Size)>();
             EditorToolModel?.ReleasePointer(this);
         }
 
@@ -672,8 +853,33 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         {
             var center = pos + (size / 2);
             var length = GizmoLength * UnitsPerPixel;
-            DrawArrow(canvas, center, center + new Vec2(length, 0), Color.Green, UnitsPerPixel);
-            DrawArrow(canvas, center, center + new Vec2(0, -length), Color.Red, UnitsPerPixel);
+            var radius = MoveCenterRadius * UnitsPerPixel;
+            DrawArrow(canvas, center + new Vec2(radius, 0), center + new Vec2(length, 0), Color.Green, UnitsPerPixel);
+            DrawArrow(canvas, center + new Vec2(0, -radius), center + new Vec2(0, -length), Color.Red, UnitsPerPixel);
+            DrawCircle(canvas, center, radius, Color.White);
+        }
+
+        private (bool Center, bool X, bool Y) HitMoveGizmo(Vec2 point, (Vec2 Pos, Vec2 Size) bounds)
+        {
+            var center = bounds.Pos + bounds.Size / 2;
+            if (point.Distance(center) <= MoveCenterRadius * UnitsPerPixel)
+                return (true, false, false);
+            var x = DistanceToSegment(point, center, center + new Vec2(GizmoLength * UnitsPerPixel, 0)) <= HandleRadius * UnitsPerPixel;
+            var y = !x && DistanceToSegment(point, center, center + new Vec2(0, -GizmoLength * UnitsPerPixel)) <= HandleRadius * UnitsPerPixel;
+            return (false, x, y);
+        }
+
+        private bool HitRotateGizmo(Vec2 point, Vec2 pivot)
+        {
+            return Math.Abs(point.Distance(pivot) - RotationRadius * UnitsPerPixel) <= HandleRadius * UnitsPerPixel;
+        }
+
+        private void DrawRotateGizmo(ICanvas canvas, Vec2 pivot)
+        {
+            var radius = RotationRadius * UnitsPerPixel;
+            DrawCircle(canvas, pivot, radius, Color.Yellow);
+            var tip = pivot + new Vec2(radius, 0);
+            DrawArrow(canvas, tip - new Vec2(0, 12 * UnitsPerPixel), tip, Color.Yellow, UnitsPerPixel);
         }
 
         private static void DrawArrow(ICanvas canvas, Vec2 start, Vec2 end, Color color, double unitsPerPixel)
@@ -712,10 +918,9 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             if (selected.TypeOObject is not Drawable2d drawable)
                 return;
 
-            var (pos, size) = selected.GetBounds();
             // Use preview origin during drag, otherwise use the actual origin
             var origin = IsDragging && DragTool == EditorTool.Origin ? PreviewOrigin : drawable.Origin;
-            var originScreenPos = pos + (size * origin);
+            var originScreenPos = selected.ToEditorWorld(drawable.LocalToWorld(drawable.Size * origin));
 
             // Draw a circle around the origin point
             var circleRadius = 12 * UnitsPerPixel;

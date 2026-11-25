@@ -245,7 +245,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             Lines[4] = topLeft;
         }
 
-        private (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetWorldCorners()
+        internal (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetWorldCorners()
         {
             if (TypeOObject is Entity2d entity)
                 return ToEditorWorld(entity.WorldCorners);

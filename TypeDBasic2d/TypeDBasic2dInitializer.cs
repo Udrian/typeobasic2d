@@ -1,4 +1,5 @@
 ﻿using TypeD;
+using System.Collections.Concurrent;
 using TypeD.Models.Data;
 using TypeD.Models.Data.Hooks;
 using TypeD.Models.Interfaces;
@@ -9,8 +10,10 @@ using TypeDBasic2d.Models.Data;
 using TypeDBasic2d.Models.Data.PropertyDefinitions;
 using TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives;
 using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities;
 using TypeDBasic2d.Typedeaf.Core.Entities.Drawables;
 using TypeDCore.Models.Data.Hooks;
+using TypeDCore.Models.Data;
 using TypeDCore.Models.Interfaces;
 using TypeOEngine.Typedeaf.Core.Common;
 
@@ -30,7 +33,7 @@ namespace TypeDBasic2d
 
         // Data
         Project Project { get; set; }
-        Dictionary<string, Debug2DDrawable> DebugDrawablesMap { get; set; }
+        ConcurrentDictionary<string, Debug2DDrawable> DebugDrawablesMap { get; set; }
         Dictionary<object, string> DebugDrawableKeys { get; set; }
         List<Debug2DDrawable> DebugDrawablesSnapshot { get; set; }
         SelectionController2DDrawable SelectionController { get; set; }
@@ -53,7 +56,7 @@ namespace TypeDBasic2d
             PropertyModel = Resources.Get<IPropertyModel>();
 
             // Data
-            DebugDrawablesMap = new Dictionary<string, Debug2DDrawable>();
+            DebugDrawablesMap = new ConcurrentDictionary<string, Debug2DDrawable>();
             DebugDrawableKeys = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
 
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.Entity2dComponent());
@@ -75,6 +78,7 @@ namespace TypeDBasic2d
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
             HookModel.AddHook<ViewerHitTestHook>(ViewerHitTest);
+            HookModel.AddHook<ViewerNudgeHook>(ViewerNudge);
             HookModel.AddHook<PropertyEditorOpenedHook>(PropertyEditorOpened);
             HookModel.AddHook<PropertyEditorClosedHook>(PropertyEditorClosed);
             HookModel.AddHook<ExtractPropertiesHook>(ExtractPolygonProperties);
@@ -108,6 +112,7 @@ namespace TypeDBasic2d
             HookModel.RemoveHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.RemoveHook<ComponentFocusHook>(ComponentFocusChanged);
             HookModel.RemoveHook<ViewerHitTestHook>(ViewerHitTest);
+            HookModel.RemoveHook<ViewerNudgeHook>(ViewerNudge);
             HookModel.RemoveHook<PropertyEditorOpenedHook>(PropertyEditorOpened);
             HookModel.RemoveHook<PropertyEditorClosedHook>(PropertyEditorClosed);
             HookModel.RemoveHook<ExtractPropertiesHook>(ExtractPolygonProperties);
@@ -161,7 +166,8 @@ namespace TypeDBasic2d
             drawable.Size = size;
             drawable.UpdateLines();
             var key = hook.Component.FullParentPath + hook.Component.ID;
-            DebugDrawablesMap.Add(key, drawable);
+            if (!DebugDrawablesMap.TryAdd(key, drawable))
+                throw new InvalidOperationException($"A viewer overlay already exists for '{key}'.");
             DebugDrawableKeys.Add(hook.TypeOObject, key);
             DebugDrawablesSnapshot = null;
             UpdateSelectionRole(drawable);
@@ -177,7 +183,7 @@ namespace TypeDBasic2d
                 && DebugDrawablesMap.TryGetValue(key, out var drawable))
             {
                 hook.Context.Game.Scenes.CurrentScene.Drawables.Destroy(drawable);
-                DebugDrawablesMap.Remove(key);
+                DebugDrawablesMap.TryRemove(key, out _);
                 DebugDrawableKeys.Remove(hook.TypeOObject);
                 DebugDrawablesSnapshot = null;
             }
@@ -241,6 +247,18 @@ namespace TypeDBasic2d
             return false;
         }
 
+        private static bool Is2dDrawableComponent(Component component, IReadOnlyList<Debug2DDrawable> overlays)
+        {
+            if (overlays.Any(overlay => ReferenceEquals(overlay.Component, component) && overlay.TypeOObject is Drawable2d))
+                return true;
+
+            // Built-in drawable metadata skips Drawable2d in its editor inheritance chain.
+            for (var current = component; current != null; current = current.BaseInheritedComponent)
+                if (typeof(Drawable2d).IsAssignableFrom(typeof(Drawable2d).Assembly.GetType(current.FullName)))
+                    return true;
+            return false;
+        }
+
         private bool EditPolygonPoints(Project project, Component component)
         {
             return IsOrDerivesFrom(component, typeof(DrawablePolygon))
@@ -260,12 +278,53 @@ namespace TypeDBasic2d
             if (component == null || hook.Menu == null)
                 return;
 
-            if (IsOrDerivesFrom(component, typeof(DrawablePolygon)))
+            var isPolygon = IsOrDerivesFrom(component, typeof(DrawablePolygon));
+            var hasTexture = isPolygon || IsOrDerivesFrom(component, typeof(DrawableTexture));
+            var hasFont = IsOrDerivesFrom(component, typeof(DrawableFont));
+            var overlays = DebugDrawablesMap.Values.ToList();
+            var isDrawable = Is2dDrawableComponent(component, overlays);
+            if (isPolygon || hasTexture || hasFont || isDrawable)
+                hook.Menu.Items.Add(new MenuItem { IsSeparator = true });
+
+            if (isDrawable)
+            {
+                MenuItem OrderItem(string name, DrawOrderMove move) => new(name, _ => ChangeDrawOrder(project, component, move))
+                {
+                    IsEnabled = DrawOrderPlanner.Plan(project, component, overlays, move) != null
+                };
+                hook.Menu.Items.Add(new MenuItem
+                {
+                    Name = "_Send to...",
+                    Items = new List<MenuItem>
+                    {
+                        OrderItem("_Forward", DrawOrderMove.Forward),
+                        OrderItem("_Front", DrawOrderMove.Front),
+                        OrderItem("_Backward", DrawOrderMove.Backward),
+                        OrderItem("_Back", DrawOrderMove.Back)
+                    }
+                });
+            }
+            if (isPolygon)
                 hook.Menu.Items.Add(new MenuItem("_Edit points", _ => EditPolygonPoints(project, component)));
-            if (IsOrDerivesFrom(component, typeof(DrawableTexture)) || IsOrDerivesFrom(component, typeof(DrawablePolygon)))
+            if (hasTexture)
                 hook.Menu.Items.Add(new MenuItem("_Change Texture", _ => _ = ChangeContentAsync(project, component, "Texture")));
-            if (IsOrDerivesFrom(component, typeof(DrawableFont)))
+            if (hasFont)
                 hook.Menu.Items.Add(new MenuItem("_Change Font", _ => _ = ChangeContentAsync(project, component, "Font")));
+        }
+
+        private void ChangeDrawOrder(Project project, Component component, DrawOrderMove move)
+        {
+            var changes = DrawOrderPlanner.Plan(project, component, DebugDrawablesMap.Values.ToList(), move);
+            if (changes == null)
+            {
+                Resources.Get<ILogModel>().Log($"Could not change draw order for '{component.Name}': no editable overlapping target is available.");
+                return;
+            }
+
+            var first = changes[0];
+            first.AdditionalChanges = changes.Skip(1).ToList();
+            if (!EditorCommandRegistry.Execute("component.change-property", first))
+                Resources.Get<ILogModel>().Log($"Could not change draw order for '{component.Name}'.");
         }
 
         private async Task ChangeContentAsync(Project project, Component component, string propertyName)
@@ -332,6 +391,7 @@ namespace TypeDBasic2d
             EditorCommandRegistry.Execute("component.change-property", new ChangePropertyCommandData
             {
                 Project = Project,
+                Component = component,
                 Property = property,
                 Value = scaled
             });
@@ -356,6 +416,7 @@ namespace TypeDBasic2d
                     hook.BoundsWidth = size.X;
                     hook.BoundsHeight = size.Y;
                 }
+
                 return;
             }
 
@@ -374,6 +435,172 @@ namespace TypeDBasic2d
             }
 
             hook.Result = hit;
+        }
+
+        internal void ViewerNudge(ViewerNudgeHook hook)
+        {
+            if (hook.Project != Project || hook.Components == null || hook.Handled)
+                return;
+
+            var selected = new HashSet<Component>(hook.Components, ReferenceEqualityComparer.Instance);
+            var overlays = DebugDrawablesMap.Values.Where(overlay => selected.Contains(overlay.Component)).ToList();
+            if (overlays.Count == 0)
+                return;
+            hook.Handled = true;
+
+            if (hook.Tool != EditorTool.Move)
+            {
+                ViewerTransformNudge(hook, overlays);
+                return;
+            }
+
+            var targets = overlays.Select(overlay => (Overlay: overlay, Component: overlay.Component,
+                    Property: overlay.Component.Properties.FirstOrDefault(property => property.Name == "Position")))
+                .Where(target => !target.Component.ReadOnly && !target.Component.Removed && target.Component.IsVisible
+                    && target.Property is { ReadOnly: false, Value: Vec2 })
+                .ToList();
+            var movable = new HashSet<Component>(targets.Select(target => target.Component), ReferenceEqualityComparer.Instance);
+            var changes = new List<ChangePropertyCommandData>();
+            foreach (var target in targets)
+            {
+                var ancestor = target.Component.ParentComponent;
+                while (ancestor != null && !movable.Contains(ancestor))
+                    ancestor = ancestor.ParentComponent;
+                if (ancestor != null)
+                    continue;
+
+                changes.Add(new ChangePropertyCommandData
+                {
+                    Project = hook.Project,
+                    Component = target.Component,
+                    Property = target.Property,
+                    Value = (Vec2)target.Property.Value + target.Overlay.GetObjectLocalDelta(hook.Delta)
+                });
+            }
+            if (changes.Count == 0)
+                return;
+
+            var first = changes[0];
+            first.AdditionalChanges = changes.Skip(1).ToList();
+            if (!EditorCommandRegistry.Execute("component.change-property", first))
+                Resources.Get<ILogModel>().Log("Could not move the selected components.");
+        }
+
+        private void ViewerTransformNudge(ViewerNudgeHook hook, List<Debug2DDrawable> overlays)
+        {
+            var changes = new List<ChangePropertyCommandData>();
+            bool AutoSized(Debug2DDrawable overlay) => overlay.TypeOObject is Entity2d entity
+                && (overlay.Component.Properties.FirstOrDefault(property => property.Name == "SizeMode")?.Value is SizeMode mode
+                    ? mode : entity.SizeMode) == SizeMode.Auto;
+            var selected = new HashSet<Component>(overlays.Where(overlay => !overlay.Component.ReadOnly
+                    && !overlay.Component.Removed && overlay.Component.IsVisible
+                    && !AutoSized(overlay)
+                    && overlay.Component.Properties.Any(property => property.Name == "Size" && !property.ReadOnly && property.Value is Vec2)
+                    && overlay.Component.Properties.Any(property => property.Name == "Position" && !property.ReadOnly && property.Value is Vec2))
+                .Select(overlay => overlay.Component), ReferenceEqualityComparer.Instance);
+            foreach (var overlay in overlays)
+            {
+                var component = overlay.Component;
+                if (component.ReadOnly || component.Removed || !component.IsVisible)
+                    continue;
+                if (hook.Tool == EditorTool.Resize && AutoSized(overlay))
+                {
+                    Resources.Get<ILogModel>().Log("Cannot resize an auto-sized entity. Change its SizeMode first.");
+                    continue;
+                }
+                if (hook.Tool == EditorTool.Resize && HasSelectedAncestor(component, selected))
+                    continue;
+
+                Property Find(string name) => component.Properties.FirstOrDefault(property => property.Name == name);
+                Vec2 VectorValue(string name, Vec2 fallback) => Find(name)?.Value is Vec2 value ? value : fallback;
+                double NumberValue(string name, double fallback) => Find(name)?.Value is double value ? value : fallback;
+                void Add(Property property, object value) => changes.Add(new ChangePropertyCommandData
+                {
+                    Project = hook.Project, Component = component, Property = property, Value = value
+                });
+
+                var position = Find("Position");
+                var size = Find("Size");
+                var rotation = Find("Rotation");
+                var origin = Find("Origin");
+                var angle = NumberValue("Rotation", overlay.GetObjectRotation()) * Math.PI / 180;
+                var cos = Math.Cos(angle);
+                var sin = Math.Sin(angle);
+                var scale = VectorValue("Scale", overlay.TypeOObject switch
+                {
+                    Drawable2d drawable => drawable.Scale,
+                    Entity2d entity => entity.Scale,
+                    _ => Vec2.One
+                });
+
+                if (hook.Tool == EditorTool.Rotate && rotation is { ReadOnly: false, Value: double degrees })
+                {
+                    Add(rotation, degrees + hook.Delta.X);
+                }
+                else if (hook.Tool == EditorTool.Origin && overlay.TypeOObject is Drawable2d
+                    && origin is { ReadOnly: false, Value: Vec2 previousOrigin }
+                    && position is { ReadOnly: false, Value: Vec2 originPosition }
+                    && size?.Value is Vec2 originSize)
+                {
+                    var local = overlay.GetObjectLocalDelta(hook.Delta);
+                    var x = local.X * cos + local.Y * sin;
+                    var y = -local.X * sin + local.Y * cos;
+                    if (Math.Abs(x) < 1e-12) x = 0;
+                    if (Math.Abs(y) < 1e-12) y = 0;
+                    if ((x != 0 && (scale.X == 0 || originSize.X == 0))
+                        || (y != 0 && (scale.Y == 0 || originSize.Y == 0)))
+                    {
+                        Resources.Get<ILogModel>().Log("Cannot move the origin of a drawable with zero size or scale.");
+                        continue;
+                    }
+                    Add(origin, previousOrigin + new Vec2(x == 0 ? 0 : x / (scale.X * originSize.X),
+                        y == 0 ? 0 : y / (scale.Y * originSize.Y)));
+                    Add(position, originPosition + local);
+                }
+                else if (hook.Tool == EditorTool.Resize && size is { ReadOnly: false, Value: Vec2 currentSize }
+                    && position is { ReadOnly: false, Value: Vec2 currentPosition })
+                {
+                    var local = overlay.GetObjectLocalDelta(hook.Delta);
+                    var x = local.X * cos + local.Y * sin;
+                    var y = -local.X * sin + local.Y * cos;
+                    if (Math.Abs(x) < 1e-12) x = 0;
+                    if (Math.Abs(y) < 1e-12) y = 0;
+                    if ((x != 0 && scale.X == 0) || (y != 0 && scale.Y == 0))
+                    {
+                        Resources.Get<ILogModel>().Log("Cannot resize a component with zero scale.");
+                        continue;
+                    }
+                    var edge = new Vec2(x == 0 ? 0 : x / scale.X, y == 0 ? 0 : y / scale.Y);
+                    double SizeChange(double delta, double length) => hook.Shrink
+                        ? -Math.Min(Math.Abs(delta), Math.Max(0, length - 1)) : Math.Abs(delta);
+                    var change = new Vec2(SizeChange(edge.X, currentSize.X), SizeChange(edge.Y, currentSize.Y));
+                    if (change == Vec2.Zero)
+                        continue;
+                    var currentOrigin = VectorValue("Origin", overlay.TypeOObject switch
+                    {
+                        Drawable2d drawable => drawable.Origin,
+                        Entity2d entity => entity.Origin,
+                        _ => Vec2.Zero
+                    });
+                    var offset = new Vec2(change.X * (currentOrigin.X - (edge.X < 0 ? 1 : 0)) * scale.X,
+                        change.Y * (currentOrigin.Y - (edge.Y < 0 ? 1 : 0)) * scale.Y);
+                    var positionDelta = new Vec2(offset.X * cos - offset.Y * sin, offset.X * sin + offset.Y * cos);
+                    Add(size, currentSize + change);
+                    if (positionDelta != Vec2.Zero)
+                        Add(position, currentPosition + positionDelta);
+                }
+                else
+                {
+                    Resources.Get<ILogModel>().Log("Cannot transform the selection: the required properties are unavailable or read-only.");
+                }
+            }
+
+            if (changes.Count == 0)
+                return;
+            var first = changes[0];
+            first.AdditionalChanges = changes.Skip(1).ToList();
+            if (!EditorCommandRegistry.Execute("component.change-property", first))
+                Resources.Get<ILogModel>().Log("Could not transform the selected components.");
         }
 
         internal void ComponentFocusChanged(ComponentFocusHook hook)

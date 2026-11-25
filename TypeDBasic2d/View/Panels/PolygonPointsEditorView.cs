@@ -40,7 +40,7 @@ namespace TypeDBasic2d.View.Panels
 
             var hint = new TextBlock
             {
-                Text = "Drag points in the viewer.                 click an edge to insert a point, middle-click a point to remove it.",
+                Text = "Drag points in the viewer. Click an edge to insert a point, middle-click a point to remove it.",
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap,
                 Margin = new Avalonia.Thickness(8, 0, 8, 6),
                 Opacity = 0.7
