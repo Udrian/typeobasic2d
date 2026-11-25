@@ -178,6 +178,25 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     scaledSize.Y == 0 ? 0 : localPosition.Y / scaledSize.Y);
             }
 
+            /// <summary>
+            /// Converts a point in the drawable's unscaled box space (top-left of the size rectangle) to world space.
+            /// </summary>
+            public Vec2 LocalToWorld(Vec2 localPoint)
+            {
+                return Entity2d.TransformPoint(localPoint * Scale, GetWorldModelMatrix());
+            }
+
+            /// <summary>
+            /// Converts a world-space point to the drawable's unscaled box space (top-left of the size rectangle).
+            /// </summary>
+            public Vec2 WorldToLocal(Vec2 worldPoint)
+            {
+                var scaled = Entity2d.InverseTransformPoint(worldPoint, GetWorldModelMatrix());
+                return new Vec2(
+                    Scale.X == 0 ? 0 : scaled.X / Scale.X,
+                    Scale.Y == 0 ? 0 : scaled.Y / Scale.Y);
+            }
+
             private Matrix4 GetWorldModelMatrix()
             {
                 var originOffset = Size * Scale * Origin;

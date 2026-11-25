@@ -47,6 +47,20 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private const double GizmoLength = 48;
         private const double HandleRadius = 8;
         private const double MinimumSize = 1;
+        private const long DoubleClickMilliseconds = 400;
+
+        private long _lastClickTime;
+        private Debug2DDrawable _lastClickTarget;
+
+        // Two left presses on the same component within the double click time
+        private bool IsDoubleClick(Debug2DDrawable target)
+        {
+            var now = Environment.TickCount64;
+            var isDouble = ReferenceEquals(_lastClickTarget, target) && now - _lastClickTime <= DoubleClickMilliseconds;
+            _lastClickTarget = isDouble ? null : target;
+            _lastClickTime = now;
+            return isDouble;
+        }
 
         /// <summary>
         /// Gets or sets the mouse input service used to read pointer state.
@@ -104,6 +118,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             DrawOrder = int.MaxValue;
             MouseInputService.SetKeyAlias(MouseButton.Left, MouseButton.Left);
             MouseInputService.SetKeyAlias(MouseButton.Right, MouseButton.Right);
+            MouseInputService.SetKeyAlias(MouseButton.Middle, MouseButton.Middle);
         }
 
         /// <summary>
@@ -114,6 +129,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             ReleasePointer();
             MouseInputService.RemoveKeyAlias(MouseButton.Left);
             MouseInputService.RemoveKeyAlias(MouseButton.Right);
+            MouseInputService.RemoveKeyAlias(MouseButton.Middle);
         }
 
         /// <summary>
@@ -219,6 +235,9 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
         private void ProcessPointer(IReadOnlyList<Debug2DDrawable> drawables, Debug2DDrawable topmost, Vec2 mousePos)
         {
+            if (EditorToolModel.SelectionInputSuspended && !IsDragging && !IsBoxSelecting)
+                return;
+
             if (IsDragging)
             {
                 if (!MouseInputService.IsDown(MouseButton.Left))
@@ -253,6 +272,15 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
 
             if (!MouseInputService.IsPressed(MouseButton.Left))
                 return;
+
+            if (topmost != null && IsDoubleClick(topmost))
+            {
+                if (!topmost.Focused)
+                    Select(new[] { topmost }, topmost);
+                var doubleClick = HookModel?.Shoot(new ViewerDoubleClickHook { Project = Project, Component = VisibleComponent(topmost.Component) ?? topmost.Component });
+                if (doubleClick?.Handled == true)
+                    return;
+            }
 
             var selected = drawables.Where(d => d.Focused).ToList();
             var tool = EditorToolModel.ActiveTool;

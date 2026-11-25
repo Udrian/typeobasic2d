@@ -32,9 +32,10 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
         /// <param name="flipped">Flipped position of texture, vertically, horizontally or both</param>
         /// <param name="source">Rectangle within where the texture should be contained, will clip texture outside of the bounds</param>
         /// <param name="anchor">Transform position anchor</param>
-        public static void DrawImage(this ICanvas canvas, Texture texture, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null)
+        /// <param name="blendMode">How the color blends with the texture, a <see cref="TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables.PolygonColorBlend"/> value. Default, Normal and Multiply tint the texture.</param>
+        public static void DrawImage(this ICanvas canvas, Texture texture, Vec2 pos, Vec2? scale = null, double rotation = 0, Vec2? origin = null, Color? color = null, Flipped flipped = Flipped.None, Rectangle? source = null, IAnchor2d anchor = null, int blendMode = 0)
         {
-            if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawImage(texture, pos, scale, rotation, origin, color, flipped, source, anchor)))
+                    if (CanvasDrawCommandQueue.TryEnqueue(() => canvas.DrawImage(texture, pos, scale, rotation, origin, color, flipped, source, anchor, blendMode)))
                 return;
 
             CanvasDrawCommandQueue.FlushPendingBatch();
@@ -56,8 +57,16 @@ namespace TypeOEngine.Typedeaf.Basic2d.Engine.Graphics
                     DrawWithEntityClipping(canvas, anchor, () =>
                     {
                         ActivateShader(tkCanvas.TextureShader, tkCanvas, pos, rotation, color ?? Color.White, origin, anchor);
+                        tkCanvas.TextureShader.Set("blendMode", blendMode);
                         tkTexture.Use();
-                        TexturedPrimitive.Draw();
+                        try
+                        {
+                            TexturedPrimitive.Draw();
+                        }
+                        finally
+                        {
+                            tkCanvas.TextureShader.Set("blendMode", 0);
+                        }
                     });
                 }
                 finally

@@ -3,7 +3,12 @@ using TypeD.Models.Data;
 using TypeD.Models.Data.Hooks;
 using TypeD.Models.Interfaces;
 using TypeD.Models.Providers.Interfaces;
+using TypeD.View;
 using TypeDBasic2d.Components;
+using TypeDBasic2d.Models.Data;
+using TypeDBasic2d.Models.Data.PropertyDefinitions;
+using TypeOBasic2d.Typedeaf.Basic2d.Entities.Drawables.Primitives;
+using TypeOEngine.Typedeaf.TypeOBasic2d.Entities.Drawables;
 using TypeDBasic2d.Typedeaf.Core.Entities.Drawables;
 using TypeDCore.Models.Data.Hooks;
 using TypeDCore.Models.Interfaces;
@@ -21,6 +26,7 @@ namespace TypeDBasic2d
         IEditorToolModel EditorToolModel { get; set; }
         IEditorCommandRegistry EditorCommandRegistry { get; set; }
         IIconModel IconModel { get; set; }
+        IPropertyModel PropertyModel { get; set; }
 
         // Data
         Project Project { get; set; }
@@ -28,6 +34,8 @@ namespace TypeDBasic2d
         Dictionary<object, string> DebugDrawableKeys { get; set; }
         List<Debug2DDrawable> DebugDrawablesSnapshot { get; set; }
         SelectionController2DDrawable SelectionController { get; set; }
+        PolygonEditor2DDrawable PolygonEditor { get; set; }
+        volatile PropertyEditorSession PolygonSession;
         List<Component> SelectedComponents { get; set; } = new List<Component>();
 
         public override void Initializer(Project project)
@@ -42,6 +50,7 @@ namespace TypeDBasic2d
             EditorToolModel = Resources.Get<IEditorToolModel>();
             EditorCommandRegistry = Resources.Get<IEditorCommandRegistry>();
             IconModel = Resources.Get<IIconModel>();
+            PropertyModel = Resources.Get<IPropertyModel>();
 
             // Data
             DebugDrawablesMap = new Dictionary<string, Debug2DDrawable>();
@@ -54,6 +63,9 @@ namespace TypeDBasic2d
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableRectangleComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableCircleComponent());
             ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawableTriangleComponent());
+            ComponentProvider.AddBaseTypeComponent(Basic2dComponent.DrawablePolygonComponent());
+            PropertyModel.Register(new PolygonPointListPropertyDefinition());
+            PropertyModel.RegisterTemplate(new PolygonPointsPropertyTemplate());
 
             // Hooks
             HookModel.AddHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
@@ -63,6 +75,11 @@ namespace TypeDBasic2d
             HookModel.AddHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.AddHook<ComponentFocusHook>(ComponentFocusChanged);
             HookModel.AddHook<ViewerHitTestHook>(ViewerHitTest);
+            HookModel.AddHook<PropertyEditorOpenedHook>(PropertyEditorOpened);
+            HookModel.AddHook<PropertyEditorClosedHook>(PropertyEditorClosed);
+            HookModel.AddHook<ExtractPropertiesHook>(ExtractPolygonProperties);
+            HookModel.AddHook<ViewerDoubleClickHook>(ViewerDoubleClicked);
+            HookModel.AddHook<ComponentContextMenuHook>(ComponentContextMenuOpened);
 
             // Content
             IconModel.AddDefaultIconsPath(Path.Combine(project.Location, "Assets", "Icons"));
@@ -78,6 +95,10 @@ namespace TypeDBasic2d
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableRectangleComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableCircleComponent());
             ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawableTriangleComponent());
+            ComponentProvider.RemoveBaseTypeComponent(Basic2dComponent.DrawablePolygonComponent());
+            PropertyModel.Unregister(typeof(List<PolygonPoint>));
+            PropertyModel.UnregisterTemplate(typeof(PolygonPointsPropertyTemplate));
+            EditorToolModel.SelectionInputSuspended = false;
 
             // Hooks
             HookModel.RemoveHook<TypeOObjectAddedToViewHook>(AddDebugDrawableComponent);
@@ -87,6 +108,11 @@ namespace TypeDBasic2d
             HookModel.RemoveHook<PropertyChangedHook>(ComponentPropertyChanged);
             HookModel.RemoveHook<ComponentFocusHook>(ComponentFocusChanged);
             HookModel.RemoveHook<ViewerHitTestHook>(ViewerHitTest);
+            HookModel.RemoveHook<PropertyEditorOpenedHook>(PropertyEditorOpened);
+            HookModel.RemoveHook<PropertyEditorClosedHook>(PropertyEditorClosed);
+            HookModel.RemoveHook<ExtractPropertiesHook>(ExtractPolygonProperties);
+            HookModel.RemoveHook<ViewerDoubleClickHook>(ViewerDoubleClicked);
+            HookModel.RemoveHook<ComponentContextMenuHook>(ComponentContextMenuOpened);
             ClearDebugDrawablesMap();
         }
 
@@ -109,6 +135,20 @@ namespace TypeDBasic2d
 
             Vec2 position = hook.Component.Properties.FirstOrDefault(p => p.Name == "Position")?.ToValue<Vec2>() ?? Vec2.Zero;
             Vec2 size = hook.Component.Properties.FirstOrDefault(p => p.Name == "Size")?.ToValue<Vec2>() ?? Vec2.Zero;
+            // The size of a polygon is derived from its points
+            if (hook.TypeOObject is DrawablePolygon polygon)
+                size = polygon.Size;
+
+            if (PolygonEditor == null)
+            {
+                PolygonEditor = hook.Context.Game.Scenes.CurrentScene.Drawables.Create<PolygonEditor2DDrawable>();
+                PolygonEditor.Project = Project;
+                PolygonEditor.EditorToolModel = EditorToolModel;
+                PolygonEditor.EditorCommandRegistry = EditorCommandRegistry;
+                PolygonEditor.GetSession = () => PolygonSession;
+                PolygonEditor.FindOverlay = component =>
+                    DebugDrawablesMap.TryGetValue(component.FullParentPath + component.ID, out var overlay) ? overlay : null;
+            }
             // The overlay always lives on the default draw stack and follows the camera. Objects on draw stacks
             // that ignore the camera are mapped into editor world space by the overlay itself.
             var scene = hook.Context.Game.Scenes.CurrentScene;
@@ -161,6 +201,95 @@ namespace TypeDBasic2d
             DebugDrawableKeys.Clear();
             DebugDrawablesSnapshot = null;
             SelectionController = null;
+            PolygonEditor = null;
+        }
+
+        internal void PropertyEditorOpened(PropertyEditorOpenedHook hook)
+        {
+            if (hook.Session.Template is PolygonPointsPropertyTemplate)
+                PolygonSession = hook.Session;
+        }
+
+        internal void PropertyEditorClosed(PropertyEditorClosedHook hook)
+        {
+            if (ReferenceEquals(PolygonSession, hook.Session))
+                PolygonSession = null;
+        }
+
+        // The polygon size is the extent of its points, so it cannot be edited directly
+        internal void ExtractPolygonProperties(ExtractPropertiesHook hook)
+        {
+            if (hook.Component == null || hook.Component.FullName != typeof(DrawablePolygon).FullName && !IsDerivedFromPolygon(hook.Component))
+                return;
+            // Size is applied by scaling Points, which is what gets generated
+            foreach (var property in hook.Properties.Where(candidate => candidate.Name == "Size"))
+                property.GenerateCode = false;
+        }
+
+        private static bool IsOrDerivesFrom(Component component, Type type)
+        {
+            if (component == null)
+                return false;
+            return component.FullName == type.FullName || IsDerivedFrom(component, type);
+        }
+
+        private static bool IsDerivedFrom(Component component, Type type)
+        {
+            for (var parent = component.BaseInheritedComponent; parent != null; parent = parent.BaseInheritedComponent)
+                if (parent.FullName == type.FullName)
+                    return true;
+            return false;
+        }
+
+        private bool EditPolygonPoints(Project project, Component component)
+        {
+            return IsOrDerivesFrom(component, typeof(DrawablePolygon))
+                && Resources.Get<IPropertyEditorModel>().OpenProperty(project, component, "Points");
+        }
+
+        internal void ViewerDoubleClicked(ViewerDoubleClickHook hook)
+        {
+            if (!hook.Handled && EditPolygonPoints(hook.Project ?? Project, hook.Component))
+                hook.Handled = true;
+        }
+
+        internal void ComponentContextMenuOpened(ComponentContextMenuHook hook)
+        {
+            var component = hook.SelectedComponent ?? hook.OpenedComponent;
+            var project = hook.Project ?? Project;
+            if (component == null || hook.Menu == null)
+                return;
+
+            if (IsOrDerivesFrom(component, typeof(DrawablePolygon)))
+                hook.Menu.Items.Add(new MenuItem("_Edit points", _ => EditPolygonPoints(project, component)));
+            if (IsOrDerivesFrom(component, typeof(DrawableTexture)) || IsOrDerivesFrom(component, typeof(DrawablePolygon)))
+                hook.Menu.Items.Add(new MenuItem("_Change Texture", _ => _ = ChangeContentAsync(project, component, "Texture")));
+            if (IsOrDerivesFrom(component, typeof(DrawableFont)))
+                hook.Menu.Items.Add(new MenuItem("_Change Font", _ => _ = ChangeContentAsync(project, component, "Font")));
+        }
+
+        private async Task ChangeContentAsync(Project project, Component component, string propertyName)
+        {
+            var property = component.Properties.FirstOrDefault(p => p.Name == propertyName);
+            if (property == null)
+                return;
+
+            var extensions = Resources.Get<IContentProvider>().GetAssociationsForEngineType(property.Type).Select(a => a.Extension);
+            var path = await Resources.Get<IEditorDialogModel>().SelectContentAsync(project, extensions);
+            if (path == null)
+                return;
+
+            EditorCommandRegistry.Execute("component.change-property", new ChangePropertyCommandData
+            {
+                Project = project,
+                Property = property,
+                Value = path
+            });
+        }
+
+        private static bool IsDerivedFromPolygon(Component component)
+        {
+            return IsDerivedFrom(component, typeof(DrawablePolygon));
         }
 
         private IReadOnlyList<Debug2DDrawable> GetDebugDrawablesSnapshot()
@@ -173,6 +302,11 @@ namespace TypeDBasic2d
             if (DebugDrawablesMap.ContainsKey(hook.Component.FullParentPath + hook.Component.ID))
             {
                 var drawable = DebugDrawablesMap[hook.Component.FullParentPath + hook.Component.ID];
+                if (hook.Property.Name == "Points" && hook.Property.Value is List<PolygonPoint> points)
+                {
+                    drawable.Size = DrawablePolygon.GetSize(DrawablePolygon.GetPositions(points));
+                    drawable.UpdateLines();
+                }
                 if (hook.Property.Name == "Position" || hook.Property.Name == "Size")
                 {
                     Vec2 position = hook.Property.Name == "Position" ? hook.Property.ToValue<Vec2>() : drawable.Position;
@@ -180,8 +314,27 @@ namespace TypeDBasic2d
                     drawable.Position = position;
                     drawable.Size = size;
                     drawable.UpdateLines();
+                    if (hook.Property.Name == "Size" && IsOrDerivesFrom(hook.Component, typeof(DrawablePolygon)))
+                        ApplyPolygonScale(hook.Component, size);
                 }
             }
+        }
+
+        // Size changes are stored as scaled points, which is what the polygon is generated from
+        private void ApplyPolygonScale(Component component, Vec2 size)
+        {
+            var property = component.Properties.FirstOrDefault(p => p.Name == nameof(DrawablePolygon.Points));
+            if (property == null || property.Value is not List<PolygonPoint> current)
+                return;
+            var scaled = DrawablePolygon.ScalePoints(current, size);
+            if (current.SequenceEqual(scaled))
+                return;
+            EditorCommandRegistry.Execute("component.change-property", new ChangePropertyCommandData
+            {
+                Project = Project,
+                Property = property,
+                Value = scaled
+            });
         }
 
         internal void ViewerHitTest(ViewerHitTestHook hook)

@@ -31,6 +31,12 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
             public Color Color { get; set; }
 
             /// <summary>
+            /// Gets or sets how the color is blended with the texture.
+            /// </summary>
+            [TypeOProperty("Gets or sets how the color is blended with the texture. Default and Normal tint the texture with the color.", Group = "Rendering")]
+            public PolygonColorBlend Blend { get; set; } = PolygonColorBlend.Normal;
+
+            /// <summary>
             /// Gets or sets the flipped state of the object.
             /// </summary>
             [TypeOProperty("Gets or sets the flipped state of the object.", Group = "Rendering")]
@@ -126,7 +132,8 @@ namespace TypeOEngine.Typedeaf.TypeOBasic2d
                     color: Color,
                     flipped: Flipped,
                     source: sourceRect,
-                    anchor: Parent as Entity2d
+                    anchor: Parent as Entity2d,
+                    blendMode: (int)Blend
                 );
             }
         }
