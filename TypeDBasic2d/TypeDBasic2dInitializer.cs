@@ -109,7 +109,11 @@ namespace TypeDBasic2d
 
             Vec2 position = hook.Component.Properties.FirstOrDefault(p => p.Name == "Position")?.ToValue<Vec2>() ?? Vec2.Zero;
             Vec2 size = hook.Component.Properties.FirstOrDefault(p => p.Name == "Size")?.ToValue<Vec2>() ?? Vec2.Zero;
-            var drawable = hook.Context.Game.Scenes.CurrentScene.Drawables.Create<Debug2DDrawable>();
+            // The overlay always lives on the default draw stack and follows the camera. Objects on draw stacks
+            // that ignore the camera are mapped into editor world space by the overlay itself.
+            var scene = hook.Context.Game.Scenes.CurrentScene;
+            var drawable = scene.Drawables.Create<Debug2DDrawable>();
+            drawable.CameraCanvas = scene.Canvas;
             drawable.TypeOObject = hook.TypeOObject;
             drawable.Component = hook.Component;
             drawable.EditorToolModel = EditorToolModel;

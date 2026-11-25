@@ -529,7 +529,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
             }
             else if (DragTool == EditorTool.Origin && DragItems[0].Drawable.TypeOObject is Drawable2d drawable)
             {
-                PreviewOrigin = drawable.GetOriginAtWorldPosition(mousePos);
+                PreviewOrigin = DragItems[0].Drawable.GetOriginAtWorldPosition(mousePos);
             }
             else if (DragTool == EditorTool.Rotate)
             {

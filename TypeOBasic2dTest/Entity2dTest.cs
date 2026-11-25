@@ -308,6 +308,46 @@ namespace TypeOBasic2dTest
             Assert.Equal(lines[0], lines[4]);
         }
 
+        public class CameraCanvasProxy : System.Reflection.DispatchProxy
+        {
+            private readonly Dictionary<string, object> values = new();
+
+            protected override object Invoke(System.Reflection.MethodInfo targetMethod, object[] args)
+            {
+                if (targetMethod.Name.StartsWith("set_"))
+                {
+                    values[targetMethod.Name[4..]] = args[0];
+                    return null;
+                }
+                if (targetMethod.Name.StartsWith("get_"))
+                    return values.TryGetValue(targetMethod.Name[4..], out var value) ? value : null;
+                throw new NotSupportedException(targetMethod.Name);
+            }
+        }
+
+        [Fact]
+        public void DebugDrawable_MapsIgnoreCameraObjectsThroughTheCamera()
+        {
+            var scene = StartScene();
+            var stack = scene.CreateDrawStack("hud", "Hud", 0, true);
+            var box = scene.Entities.Create<Box>("box", drawStack: stack);
+            box.Position = new Vec2(10, 20);
+            SetSize(box, new Vec2(30, 40));
+            var canvas = System.Reflection.DispatchProxy.Create<TypeOEngine.Typedeaf.Core.Engine.Graphics.Interfaces.ICanvas, CameraCanvasProxy>();
+            canvas.WorldTranslation = new TypeOEngine.Typedeaf.Core.Common.Vec3(100, 200, 0);
+            canvas.WorldScale = 2;
+            var overlay = scene.Drawables.Create<Debug2DDrawable>();
+            overlay.TypeOObject = box;
+            overlay.CameraCanvas = canvas;
+
+            var (pos, size) = overlay.GetBounds();
+            AssertPoint(new Vec2(105, 210), pos);
+            AssertPoint(new Vec2(15, 20), size);
+            Assert.True(overlay.ContainsPoint(new Vec2(110, 220)));
+            Assert.False(overlay.ContainsPoint(new Vec2(10, 20)));
+            AssertPoint(new Vec2(10, 20), overlay.FromEditorWorld(overlay.ToEditorWorld(new Vec2(10, 20))));
+        }
+
         [Fact]
         public void DebugDrawable_HitTestUsesRotatedEntityCorners()
         {

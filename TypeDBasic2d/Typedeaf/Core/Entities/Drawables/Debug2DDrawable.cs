@@ -91,7 +91,7 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// <summary>
         /// Gets the top-left position of the outlined area on screen.
         /// </summary>
-        public Vec2 ScreenPosition => GetPos();
+        public Vec2 ScreenPosition => GetBounds().Pos;
 
         /// <summary>
         /// Determines whether a screen point lies inside the outlined area.
@@ -154,11 +154,79 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         /// <returns>The top-left position and the size of the area.</returns>
         public (Vec2 Pos, Vec2 Size) GetBounds()
         {
+            Vec2 pos;
+            Vec2 size;
             if (TypeOObject is Entity2d entity)
-                return (entity.ScreenBounds.Pos, entity.ScreenBounds.Size);
-            if (TypeOObject is Drawable2d drawable)
-                return (drawable.WorldBounds.Pos, drawable.WorldBounds.Size);
-            return (GetPos(), Size);
+                (pos, size) = (entity.ScreenBounds.Pos, entity.ScreenBounds.Size);
+            else if (TypeOObject is Drawable2d drawable)
+                (pos, size) = (drawable.WorldBounds.Pos, drawable.WorldBounds.Size);
+            else
+                (pos, size) = (Position, Size);
+
+            var scale = CameraScale;
+            return (ToEditorWorld(pos), scale == 1 ? size : new Vec2(size.X / scale, size.Y / scale));
+        }
+
+        /// <summary>
+        /// Gets the draw stack the outlined object is drawn on.
+        /// </summary>
+        public DrawStack DrawStack => TypeOObject switch
+        {
+            Entity2d entity => entity.DrawStack,
+            Drawable2d drawable => drawable.DrawStack,
+            _ => null
+        };
+
+        /// <summary>
+        /// Gets or sets the canvas whose camera is used to map objects on draw stacks that ignore the camera.
+        /// </summary>
+        public ICanvas CameraCanvas { get; set; }
+
+        private bool IgnoresCamera => DrawStack?.IgnoreCamera == true && CameraCanvas != null;
+
+        private double CameraScale => IgnoresCamera && CameraCanvas.WorldScale > 0 ? CameraCanvas.WorldScale : 1;
+
+        /// <summary>
+        /// Maps a point of the outlined object to editor world space, where the overlays are drawn and picked.
+        /// Objects on a draw stack that ignores the camera are in screen space, which moves with the camera.
+        /// </summary>
+        /// <param name="point">The point in the space of the outlined object.</param>
+        /// <returns>The point in editor world space.</returns>
+        public Vec2 ToEditorWorld(Vec2 point)
+        {
+            if (!IgnoresCamera)
+                return point;
+
+            var scale = CameraScale;
+            var translation = CameraCanvas.WorldTranslation;
+            return new Vec2(translation.X + point.X / scale, translation.Y + point.Y / scale);
+        }
+
+        /// <summary>
+        /// Maps a point in editor world space to the space of the outlined object.
+        /// </summary>
+        /// <param name="point">The point in editor world space.</param>
+        /// <returns>The point in the space of the outlined object.</returns>
+        public Vec2 FromEditorWorld(Vec2 point)
+        {
+            if (!IgnoresCamera)
+                return point;
+
+            var scale = CameraScale;
+            var translation = CameraCanvas.WorldTranslation;
+            return new Vec2((point.X - translation.X) * scale, (point.Y - translation.Y) * scale);
+        }
+
+        /// <summary>
+        /// Gets the origin, relative to the outlined drawable, that is located at a point in editor world space.
+        /// </summary>
+        /// <param name="worldPosition">The point in editor world space.</param>
+        /// <returns>The origin as a fraction of the drawable size.</returns>
+        internal Vec2 GetOriginAtWorldPosition(Vec2 worldPosition)
+        {
+            return TypeOObject is Drawable2d drawable
+                ? drawable.GetOriginAtWorldPosition(FromEditorWorld(worldPosition))
+                : Vec2.Zero;
         }
 
         /// <summary>
@@ -180,12 +248,17 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         private (Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) GetWorldCorners()
         {
             if (TypeOObject is Entity2d entity)
-                return entity.WorldCorners;
+                return ToEditorWorld(entity.WorldCorners);
             if (TypeOObject is Drawable2d drawable)
-                return drawable.WorldCorners;
+                return ToEditorWorld(drawable.WorldCorners);
 
             var (pos, size) = GetBounds();
             return (pos, pos + new Vec2(size.X, 0), pos + size, pos + new Vec2(0, size.Y));
+        }
+
+        private (Vec2, Vec2, Vec2, Vec2) ToEditorWorld((Vec2 TopLeft, Vec2 TopRight, Vec2 BottomRight, Vec2 BottomLeft) corners)
+        {
+            return (ToEditorWorld(corners.TopLeft), ToEditorWorld(corners.TopRight), ToEditorWorld(corners.BottomRight), ToEditorWorld(corners.BottomLeft));
         }
 
         private bool IsVisibleForDisplayMode(IEditorToolModel display)
@@ -280,29 +353,23 @@ namespace TypeDBasic2d.Typedeaf.Core.Entities.Drawables
         internal Vec2 GetObjectPivot()
         {
             if (TypeOObject is Entity2d entity)
-                return entity.WorldPosition;
+                return ToEditorWorld(entity.WorldPosition);
             if (TypeOObject is Drawable2d drawable)
-                return drawable.WorldPosition;
-            return Position;
+                return ToEditorWorld(drawable.WorldPosition);
+            return ToEditorWorld(Position);
         }
 
         internal Vec2 GetObjectLocalDelta(Vec2 worldDelta)
         {
+            var scale = CameraScale;
+            if (scale != 1)
+                worldDelta = new Vec2(worldDelta.X * scale, worldDelta.Y * scale);
+
             if (TypeOObject is Entity2d entity && entity.Parent is Entity2d entityParent)
                 return entityParent.WorldDeltaToLocal(worldDelta);
             if (TypeOObject is Drawable2d drawable)
                 return drawable.WorldDeltaToLocal(worldDelta);
             return worldDelta;
-        }
-
-        private Vec2 GetPos()
-        {
-            if (TypeOObject is Entity2d entity)
-                return entity.ScreenBounds.Pos;
-            if (TypeOObject is Drawable2d drawable)
-                return drawable.WorldBounds.Pos;
-
-            return Position;
         }
     }
 }
